@@ -1,0 +1,116 @@
+---
+globs: *.css,*.scss,*.sass,*.less,*.vue,*.jsx,*.tsx,*.html
+description: CSS 样式命名规范 - 使用组件名作为前缀
+---
+
+# CSS 样式命名规范
+
+## 核心原则
+在编写 CSS 样式时，必须使用组件名称作为类名前缀，以防止样式冲突和全局污染。
+
+## 命名规则
+
+### 1. 基本格式
+```css
+.ComponentName-elementName { }
+.ComponentName-elementName--modifier { }
+.ComponentName-elementName__subElement { }
+```
+
+### 2. 示例
+
+**错误写法** ❌
+```css
+.header { }
+.button { }
+.title { }
+.content { }
+```
+
+**正确写法** ✅
+```css
+/* UserProfile 组件 */
+.UserProfile-container { }
+.UserProfile-header { }
+.UserProfile-avatar { }
+.UserProfile-button--primary { }
+
+/* ProductCard 组件 */
+.ProductCard-container { }
+.ProductCard-title { }
+.ProductCard-price { }
+.ProductCard-button--disabled { }
+```
+
+### 3. Vue/React 组件中的样式
+
+**Vue 示例**
+```vue
+<template>
+  <div class="UserProfile-container">
+    <h1 class="UserProfile-title">{{ title }}</h1>
+    <button class="UserProfile-button--primary">提交</button>
+  </div>
+</template>
+
+<style scoped>
+.UserProfile-container {
+  padding: 20px;
+}
+
+.UserProfile-title {
+  font-size: 24px;
+  color: #333;
+}
+
+.UserProfile-button--primary {
+  background-color: #007bff;
+  color: white;
+}
+</style>
+```
+
+**React 示例**
+```jsx
+// ProductCard.jsx
+export default function ProductCard() {
+  return (
+    <div className="ProductCard-container">
+      <h2 className="ProductCard-title">商品标题</h2>
+      <button className="ProductCard-button--buy">购买</button>
+    </div>
+  );
+}
+```
+
+```css
+/* ProductCard.css */
+.ProductCard-container {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+}
+
+.ProductCard-title {
+  font-weight: bold;
+}
+
+.ProductCard-button--buy {
+  padding: 10px 20px;
+}
+```
+
+## 注意事项
+
+1. **组件名使用大驼峰（PascalCase）**：如 `UserProfile`、`ProductCard`
+2. **元素名使用小驼峰（camelCase）**：如 `container`、`buttonWrapper`
+3. **修饰符使用双横线 `--`**：如 `button--primary`、`card--highlighted`
+4. **子元素使用双下划线 `__`**：如 `card__header`、`form__input`
+5. **避免使用通用类名**：不要使用 `.container`、`.button`、`.text` 等容易冲突的类名
+
+## 优势
+
+- ✅ 防止样式冲突
+- ✅ 提高代码可维护性
+- ✅ 清晰的样式作用域
+- ✅ 便于代码审查和调试
+- ✅ 避免全局样式污染

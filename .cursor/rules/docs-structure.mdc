@@ -1,0 +1,39 @@
+---
+alwaysApply: true
+description: 项目文档目录结构规范
+---
+
+# 文档目录结构规范
+
+## 目录结构要求
+
+项目中前端和后端都必须有独立的 `docs` 目录来管理文档文件：
+
+- **前端文档目录**: `frontend/docs/`
+- **后端文档目录**: `backend/docs/`
+
+## 文件存放规则
+
+所有 Markdown 文档文件（`.md` 扩展名）都应该放置在对应的 `docs` 文件夹中：
+
+- 前端相关的文档：存放在 `frontend/docs/` 目录
+- 后端相关的文档：存放在 `backend/docs/` 目录
+
+## 示例
+
+正确的文档位置：
+- ✅ `frontend/docs/README.md`
+- ✅ `frontend/docs/components.md`
+- ✅ `backend/docs/API.md`
+- ✅ `backend/docs/database-schema.md`
+
+错误的文档位置：
+- ❌ `frontend/README.md`
+- ❌ `backend/API.md`
+- ❌ `README.md`（项目根目录的主 README.md 除外）
+
+## 注意事项
+
+- 项目根目录的 `README.md` 作为项目主文档可以保留
+- 创建新的文档时，请确保放置在正确的 `docs` 目录中
+- 如果发现文档位置不正确，应及时移动到相应的 `docs` 文件夹
