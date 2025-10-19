@@ -5,6 +5,7 @@ from database import init_db
 from routers import api_router
 from auth_routes import auth_router
 from config_routes import router as config_router
+from volcano_routes import router as volcano_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -49,6 +50,7 @@ async def health_check():
 app.include_router(api_router, prefix="/api")
 app.include_router(auth_router, prefix="/api")
 app.include_router(config_router)
+app.include_router(volcano_router)
 
 if __name__ == "__main__":
     import uvicorn
