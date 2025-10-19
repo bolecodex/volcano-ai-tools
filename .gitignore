@@ -23,7 +23,8 @@ backend/.env
 .DS_Store
 Thumbs.db
 
-# 日志
+# 日志和进程文件
 *.log
 npm-debug.log*
+*.pid
 
