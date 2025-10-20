@@ -222,7 +222,7 @@ function App() {
             <Card className="shadow-sm">
               <Card.Body>
                 <Card.Title className="text-center mb-4">
-                  <h2>欢迎使用 HS ADK + 火山AI创作工坊</h2>
+                  <h2>欢迎使用火山AI工具</h2>
                 </Card.Title>
                 <Card.Text className="text-center text-muted mb-4">
                   集成认证系统和火山AI创作功能的 Web 应用程序
@@ -317,7 +317,7 @@ function App() {
       <Navbar bg="dark" variant="dark" expand="lg">
         <Container>
           <Navbar.Brand href="#" onClick={() => setCurrentView('home')}>
-            HS ADK + 火山AI
+            火山AI工具
           </Navbar.Brand>
           <Navbar.Toggle aria-controls="basic-navbar-nav" />
           <Navbar.Collapse id="basic-navbar-nav">

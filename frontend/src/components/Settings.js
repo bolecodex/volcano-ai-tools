@@ -75,26 +75,47 @@ function Settings() {
 
   const handleSaveCredentials = () => {
     try {
+      let savedItems = [];
+      
       // 保存 API Key
-      if (apiCredentials.apiKey) {
-        storage.setApiKey(apiCredentials.apiKey);
+      if (apiCredentials.apiKey && apiCredentials.apiKey.trim()) {
+        storage.setApiKey(apiCredentials.apiKey.trim());
+        savedItems.push('API Key');
       }
       
-      // 保存 AccessKey 和 SecretKey
-      if (apiCredentials.accessKeyId && apiCredentials.secretAccessKey) {
-        storage.setAccessKeys(apiCredentials.accessKeyId, apiCredentials.secretAccessKey);
+      // 保存 AccessKey 和 SecretKey - 即使只有一个也保存
+      const trimmedAccessKeyId = apiCredentials.accessKeyId?.trim() || '';
+      const trimmedSecretAccessKey = apiCredentials.secretAccessKey?.trim() || '';
+      
+      if (trimmedAccessKeyId || trimmedSecretAccessKey) {
+        storage.setAccessKeys(trimmedAccessKeyId, trimmedSecretAccessKey);
+        if (trimmedAccessKeyId) savedItems.push('AccessKeyId');
+        if (trimmedSecretAccessKey) savedItems.push('SecretAccessKey');
       }
+      
+      const message = savedItems.length > 0 
+        ? `✅ 已保存: ${savedItems.join(', ')}` 
+        : '⚠️ 没有要保存的内容';
       
       setCredentialsAlert({ 
         show: true, 
-        type: 'success', 
-        message: 'API 凭证保存成功！' 
+        type: savedItems.length > 0 ? 'success' : 'warning', 
+        message: message 
       });
+      
+      // 在控制台输出详细信息用于调试
+      console.log('=== API 凭证保存 ===');
+      console.log('AccessKeyId:', trimmedAccessKeyId ? `已保存 (长度: ${trimmedAccessKeyId.length})` : '空');
+      console.log('SecretAccessKey:', trimmedSecretAccessKey ? `已保存 (长度: ${trimmedSecretAccessKey.length})` : '空');
+      console.log('保存后验证:');
+      console.log('  localStorage.volcengine_access_key_id:', localStorage.getItem('volcengine_access_key_id') ? '✅' : '❌');
+      console.log('  localStorage.volcengine_secret_access_key:', localStorage.getItem('volcengine_secret_access_key') ? '✅' : '❌');
       
       setTimeout(() => {
         setCredentialsAlert({ show: false, type: '', message: '' });
       }, 3000);
     } catch (error) {
+      console.error('保存 API 凭证失败:', error);
       setCredentialsAlert({ 
         show: true, 
         type: 'danger', 

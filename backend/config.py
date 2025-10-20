@@ -5,7 +5,7 @@ class Settings(BaseSettings):
     """应用配置"""
     
     # 应用信息
-    app_name: str = "HS ADK API"
+    app_name: str = "火山AI工具 API"
     app_version: str = "1.0.0"
     debug: bool = True
     

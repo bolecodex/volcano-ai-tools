@@ -302,6 +302,7 @@ function VideoGenerator() {
             };
             
             // 保存到本地存储
+            const now = Math.floor(Date.now() / 1000); // Unix 时间戳（秒）
             const taskInfo = {
               id: taskId,
               task_id: taskId,
@@ -311,7 +312,9 @@ function VideoGenerator() {
               prompt: taskForm.textPrompt,
               generationType: taskForm.generationType,
               frames: jimengRequestData.frames,
-              aspect_ratio: jimengRequestData.aspect_ratio
+              aspect_ratio: jimengRequestData.aspect_ratio,
+              created_at: now,
+              updated_at: now
             };
             storage.saveJimeng30ProTask(taskInfo);
             console.log('✅ 即梦3.0 Pro任务已保存到本地存储:', taskId);
@@ -594,7 +597,8 @@ function VideoGenerator() {
             if (result.success) {
               // 更新本地存储
               const updates = {
-                status: result.data.status
+                status: result.data.status,
+                updated_at: Math.floor(Date.now() / 1000)
               };
               if (result.data.video_url) {
                 updates.video_url = result.data.video_url;
@@ -732,7 +736,14 @@ function VideoGenerator() {
 
   // 格式化时间戳
   const formatTimestamp = (timestamp) => {
-    return new Date(timestamp * 1000).toLocaleString('zh-CN');
+    if (!timestamp || isNaN(timestamp)) {
+      return '未知';
+    }
+    try {
+      return new Date(timestamp * 1000).toLocaleString('zh-CN');
+    } catch (e) {
+      return '未知';
+    }
   };
 
   // 获取状态徽章样式
@@ -802,7 +813,8 @@ function VideoGenerator() {
             
             // 更新本地存储的任务状态
             const updates = {
-              status: status
+              status: status,
+              updated_at: Math.floor(Date.now() / 1000)
             };
             if (result.data.video_url) {
               updates.video_url = result.data.video_url;
@@ -1641,23 +1653,27 @@ function VideoGenerator() {
                         className="w-100"
                         style={{ maxHeight: '400px' }}
                         preload="metadata"
-                        poster=""
+                        crossOrigin="anonymous"
+                        controlsList="nodownload"
+                        playsInline
                       >
                         <source src={selectedTask.content?.video_url || selectedTask.video_url} type="video/mp4" />
-                        您的浏览器不支持视频播放。请 
-                        <a href={selectedTask.content?.video_url || selectedTask.video_url} target="_blank" rel="noopener noreferrer">
-                          点击这里下载视频
-                        </a>
+                        您的浏览器不支持视频播放。
                       </video>
+                      <div className="text-muted small mt-2">
+                        <i className="bi bi-info-circle me-1"></i>
+                        如果视频无法播放，请点击下方的"下载视频"按钮保存到本地观看
+                      </div>
                     </div>
                     
                     {/* 操作按钮 */}
-                    <div className="video-controls">
+                    <div className="video-controls d-flex gap-2">
                       <Button 
                         variant="success" 
-                        href={selectedTask.content?.video_url || selectedTask.video_url} 
-                        target="_blank"
-                        download
+                        onClick={() => {
+                          const videoUrl = selectedTask.content?.video_url || selectedTask.video_url;
+                          window.open(videoUrl, '_blank', 'noopener,noreferrer');
+                        }}
                       >
                         <i className="bi bi-download me-1"></i>
                         下载视频
@@ -1665,6 +1681,17 @@ function VideoGenerator() {
                       
                       <Button 
                         variant="outline-primary" 
+                        onClick={() => {
+                          const videoUrl = selectedTask.content?.video_url || selectedTask.video_url;
+                          window.open(videoUrl, '_blank', 'noopener,noreferrer');
+                        }}
+                      >
+                        <i className="bi bi-box-arrow-up-right me-1"></i>
+                        新窗口打开
+                      </Button>
+                      
+                      <Button 
+                        variant="outline-secondary" 
                         onClick={() => {
                           navigator.clipboard.writeText(selectedTask.content?.video_url || selectedTask.video_url);
                           showAlert('info', '视频链接已复制到剪贴板');

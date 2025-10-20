@@ -6,6 +6,7 @@ from routers import api_router
 from auth_routes import auth_router
 from config_routes import router as config_router
 from volcano_routes import router as volcano_router
+from tos_routes import router as tos_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -17,7 +18,7 @@ async def lifespan(app: FastAPI):
     print("应用关闭")
 
 app = FastAPI(
-    title="HS ADK API",
+    title="火山AI工具 API",
     description="基于 FastAPI 和 SQLite 的后端服务",
     version="1.0.0",
     lifespan=lifespan
@@ -36,7 +37,7 @@ app.add_middleware(
 @app.get("/")
 async def root():
     return {
-        "message": "欢迎使用 HS ADK API",
+        "message": "欢迎使用 火山AI工具 API",
         "version": "1.0.0",
         "status": "运行中"
     }
@@ -51,6 +52,7 @@ app.include_router(api_router, prefix="/api")
 app.include_router(auth_router, prefix="/api")
 app.include_router(config_router)
 app.include_router(volcano_router)
+app.include_router(tos_router)
 
 if __name__ == "__main__":
     import uvicorn

@@ -19,8 +19,12 @@ import {
   ListGroup
 } from 'react-bootstrap';
 import { storage } from '../utils/storage';
+import volcanoAPI from '../api/volcanoAPI';
 
 function DigitalHuman() {
+  // 检测是否在 Electron 环境
+  const isElectron = window.electronAPI && window.electronAPI.uploadToTOS;
+  
   // 状态管理
   const [activeTab, setActiveTab] = useState('create');
   const [isLoading, setIsLoading] = useState(false);
@@ -172,38 +176,98 @@ function DigitalHuman() {
       setIsLoading(true);
       
       // 获取 TOS 配置和访问密钥
-      const tosConfig = storage.getTOSConfig();
-      const accessKeyId = storage.getAccessKeyId();
-      const secretAccessKey = storage.getSecretAccessKey();
+      let tosConfig = storage.getTOSConfig();
+      let accessKeyId = storage.getAccessKeyId();
+      let secretAccessKey = storage.getSecretAccessKey();
       
-      // 验证配置是否完整
-      if (!tosConfig.bucket || !accessKeyId || !secretAccessKey) {
-        throw new Error('TOS配置不完整。请在设置中配置 Bucket 名称和访问密钥。');
+      // 如果 storage 返回空值，直接从 localStorage 读取（参考 MotionImitation 的做法）
+      if (!accessKeyId || !secretAccessKey) {
+        console.log('⚠️ storage 工具返回空值，直接从 localStorage 读取');
+        accessKeyId = localStorage.getItem('volcengine_access_key_id') || '';
+        secretAccessKey = localStorage.getItem('volcengine_secret_access_key') || '';
+        
+        // 同时重新读取 TOS 配置
+        try {
+          const tosConfigStr = localStorage.getItem('tos_config');
+          if (tosConfigStr) {
+            tosConfig = JSON.parse(tosConfigStr);
+          }
+        } catch (e) {
+          console.error('解析 TOS 配置失败:', e);
+        }
       }
       
-      const fileData = await readFileAsArrayBuffer(file);
+      // 详细日志
+      console.log('🔍 检查TOS配置:', {
+        hasTosConfig: !!tosConfig,
+        bucket: tosConfig?.bucket || '(未配置)',
+        region: tosConfig?.region || '(未配置)',
+        hasAccessKeyId: !!accessKeyId,
+        accessKeyIdLength: accessKeyId?.length || 0,
+        hasSecretAccessKey: !!secretAccessKey,
+        secretAccessKeyLength: secretAccessKey?.length || 0
+      });
       
-      const config = {
-        bucket: tosConfig.bucket,
-        accessKeyId: accessKeyId,
-        secretAccessKey: secretAccessKey,
-        region: tosConfig.region || 'cn-beijing'
-      };
-
-      const uploadData = {
-        name: file.name,
-        size: file.size,
-        type: file.type,
-        buffer: Array.from(new Uint8Array(fileData))
-      };
-
-      const result = await window.electronAPI.uploadToTOS(uploadData, config);
+      // 验证配置是否完整
+      if (!tosConfig || !tosConfig.bucket) {
+        throw new Error('TOS Bucket 未配置。请在设置页面配置 TOS Bucket 名称。');
+      }
+      if (!tosConfig.region) {
+        throw new Error('TOS Region 未配置。请在设置页面配置 TOS Region（如：cn-beijing）。');
+      }
+      if (!accessKeyId) {
+        throw new Error('AccessKeyId 未配置。请在设置页面配置访问密钥。');
+      }
+      if (!secretAccessKey) {
+        throw new Error('SecretAccessKey 未配置。请在设置页面配置访问密钥。');
+      }
       
-      if (result.success) {
-        showAlert('success', `${type === 'image' ? '图片' : '音频'}上传成功！`);
-        return result.url;  // 修复：直接使用 result.url 而不是 result.data.url
+      if (isElectron) {
+        // Electron 环境：使用 IPC 上传
+        const fileData = await readFileAsArrayBuffer(file);
+        
+        const config = {
+          bucket: tosConfig.bucket,
+          accessKeyId: accessKeyId,
+          secretAccessKey: secretAccessKey,
+          region: tosConfig.region || 'cn-beijing'
+        };
+
+        const uploadData = {
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          buffer: Array.from(new Uint8Array(fileData))
+        };
+
+        const result = await window.electronAPI.uploadToTOS(uploadData, config);
+        
+        if (result.success) {
+          showAlert('success', `${type === 'image' ? '图片' : '音频'}上传成功！`);
+          return result.url;
+        } else {
+          throw new Error(result.error?.message || '上传失败');
+        }
       } else {
-        throw new Error(result.error?.message || '上传失败');
+        // Web 环境：通过 volcanoAPI 上传
+        console.log('🌐 使用 HTTP API 上传文件');
+        console.log('🔐 上传参数:', {
+          fileName: file.name,
+          fileSize: file.size,
+          bucket: tosConfig.bucket,
+          region: tosConfig.region,
+          hasAccessKeyId: !!accessKeyId,
+          hasSecretAccessKey: !!secretAccessKey
+        });
+        
+        const result = await volcanoAPI.uploadToTOS(file, tosConfig, accessKeyId, secretAccessKey);
+        
+        if (result.success) {
+          showAlert('success', `${type === 'image' ? '图片' : '音频'}上传成功！`);
+          return result.url;
+        } else {
+          throw new Error(result.error || '上传失败');
+        }
       }
     } catch (error) {
       showAlert('danger', `${type === 'image' ? '图片' : '音频'}上传失败: ${error.message}`);
@@ -613,6 +677,7 @@ function DigitalHuman() {
                   <li><strong>可选步骤：</strong>如需指定特定主体说话，可启用"主体检测"</li>
                   <li><strong>提示词：</strong>支持中文、英语、日语、韩语等，可调整画面、动作、运镜</li>
                   <li><strong>快速模式：</strong>牺牲部分效果加快生成速度</li>
+                  <li><strong>文件上传：</strong>{isElectron ? '使用桌面应用 IPC 通道上传' : '通过后端 API 上传（需要启动后端服务）'}</li>
                 </ul>
               </Alert>
 
@@ -676,7 +741,7 @@ function DigitalHuman() {
                       <Form.Control
                         type="url"
                         placeholder="https://example.com/image.jpg"
-                        value={formData.imageUrl}
+                        value={formData.imageUrl || ''}
                         onChange={(e) => setFormData(prev => ({ ...prev, imageUrl: e.target.value }))}
                       />
                     </Form.Group>
@@ -686,7 +751,7 @@ function DigitalHuman() {
                       <Form.Control
                         type="file"
                         accept="image/*"
-                        onChange={(e) => setFormData(prev => ({ ...prev, imageFile: e.target.files[0] }))}
+                        onChange={(e) => setFormData(prev => ({ ...prev, imageFile: e.target.files[0] || null }))}
                       />
                       {formData.imageFile && (
                         <Form.Text className="text-muted">
@@ -735,7 +800,7 @@ function DigitalHuman() {
                       <Form.Control
                         type="url"
                         placeholder="https://example.com/audio.mp3"
-                        value={formData.audioUrl}
+                        value={formData.audioUrl || ''}
                         onChange={(e) => setFormData(prev => ({ ...prev, audioUrl: e.target.value }))}
                       />
                       <Form.Text className="text-muted">
@@ -748,7 +813,7 @@ function DigitalHuman() {
                       <Form.Control
                         type="file"
                         accept="audio/*"
-                        onChange={(e) => setFormData(prev => ({ ...prev, audioFile: e.target.files[0] }))}
+                        onChange={(e) => setFormData(prev => ({ ...prev, audioFile: e.target.files[0] || null }))}
                       />
                       {formData.audioFile && (
                         <Form.Text className="text-muted">
@@ -784,8 +849,8 @@ function DigitalHuman() {
                     <Form.Group className="mb-3">
                       <Form.Label>选择主体</Form.Label>
                       <Form.Select
-                        value={formData.selectedMaskIndex}
-                        onChange={(e) => setFormData(prev => ({ ...prev, selectedMaskIndex: parseInt(e.target.value) }))}
+                        value={formData.selectedMaskIndex ?? 0}
+                        onChange={(e) => setFormData(prev => ({ ...prev, selectedMaskIndex: parseInt(e.target.value) || 0 }))}
                       >
                         {detectionResult.maskUrls.map((url, index) => (
                           <option key={index} value={index}>主体 {index + 1}</option>
@@ -801,7 +866,7 @@ function DigitalHuman() {
                       as="textarea"
                       rows={2}
                       placeholder="描述画面、动作、运镜等（支持中文、英语、日语、韩语等）"
-                      value={formData.prompt}
+                      value={formData.prompt || ''}
                       onChange={(e) => setFormData(prev => ({ ...prev, prompt: e.target.value }))}
                     />
                   </Form.Group>
@@ -811,8 +876,8 @@ function DigitalHuman() {
                     <Form.Label>随机种子（-1为随机）</Form.Label>
                     <Form.Control
                       type="number"
-                      value={formData.seed}
-                      onChange={(e) => setFormData(prev => ({ ...prev, seed: parseInt(e.target.value) }))}
+                      value={formData.seed ?? -1}
+                      onChange={(e) => setFormData(prev => ({ ...prev, seed: parseInt(e.target.value) || -1 }))}
                     />
                   </Form.Group>
 
@@ -1051,7 +1116,7 @@ function DigitalHuman() {
                   <Form.Group>
                     <Form.Label>状态筛选</Form.Label>
                     <Form.Select
-                      value={taskFilter.status}
+                      value={taskFilter.status || ''}
                       onChange={(e) => setTaskFilter(prev => ({ ...prev, status: e.target.value }))}
                     >
                       <option value="">全部状态</option>
@@ -1067,7 +1132,7 @@ function DigitalHuman() {
                     <Form.Control
                       type="text"
                       placeholder="输入任务ID"
-                      value={taskFilter.taskId}
+                      value={taskFilter.taskId || ''}
                       onChange={(e) => setTaskFilter(prev => ({ ...prev, taskId: e.target.value }))}
                     />
                   </Form.Group>
@@ -1076,8 +1141,8 @@ function DigitalHuman() {
                   <Form.Group>
                     <Form.Label>显示数量</Form.Label>
                     <Form.Select
-                      value={taskFilter.pageSize}
-                      onChange={(e) => setTaskFilter(prev => ({ ...prev, pageSize: parseInt(e.target.value) }))}
+                      value={taskFilter.pageSize ?? 10}
+                      onChange={(e) => setTaskFilter(prev => ({ ...prev, pageSize: parseInt(e.target.value) || 10 }))}
                     >
                       <option value="10">10</option>
                       <option value="20">20</option>

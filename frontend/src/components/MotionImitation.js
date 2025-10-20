@@ -17,6 +17,7 @@ import {
   InputGroup
 } from 'react-bootstrap';
 import { storage } from '../utils/storage';
+import volcanoAPI from '../api/volcanoAPI';
 
 function MotionImitation() {
   // 状态管理
@@ -207,13 +208,15 @@ function MotionImitation() {
           has_accessKey: !!requestData.accessKeyId
         });
 
+        // 优先使用Electron IPC，否则使用HTTP API
         if (window.electronAPI && window.electronAPI.queryJimengMotionImitationTask) {
+          console.log('🖥️ 使用 Electron IPC 查询任务');
           result = await window.electronAPI.queryJimengMotionImitationTask(requestData);
-          console.log('📥 收到查询结果:', result);
         } else {
-          showAlert('warning', '请使用Electron桌面应用');
-          return;
+          console.log('🌐 使用 HTTP API 查询任务');
+          result = await volcanoAPI.queryJimengMotionImitationTask(requestData);
         }
+        console.log('📥 收到查询结果:', result);
       } else {
         // 旧版动作模仿接口
         requestData = {
@@ -229,13 +232,15 @@ function MotionImitation() {
           has_accessKey: !!requestData.accessKeyId
         });
 
+        // 优先使用Electron IPC，否则使用HTTP API
         if (window.electronAPI && window.electronAPI.queryMotionImitationTask) {
+          console.log('🖥️ 使用 Electron IPC 查询任务');
           result = await window.electronAPI.queryMotionImitationTask(requestData);
-          console.log('📥 收到查询结果:', result);
         } else {
-          showAlert('warning', '请使用Electron桌面应用');
-          return;
+          console.log('🌐 使用 HTTP API 查询任务');
+          result = await volcanoAPI.queryMotionImitationTask(requestData);
         }
+        console.log('📥 收到查询结果:', result);
       }
 
       if (result.success) {
@@ -426,45 +431,91 @@ function MotionImitation() {
   // 上传文件到TOS
   const uploadFileToTOS = async (file, type) => {
     try {
-      // 读取文件为ArrayBuffer
-      const arrayBuffer = await file.arrayBuffer();
-      
-      // 获取TOS配置
+      // 获取TOS配置和访问密钥
       const tosConfig = storage.getTOSConfig();
       const accessKeyId = storage.getAccessKeyId();
       const secretAccessKey = storage.getSecretAccessKey();
 
-      // 检查配置
-      if (!tosConfig.bucket || !accessKeyId || !secretAccessKey) {
-        throw new Error('TOS配置不完整。请在设置中配置 TOS Bucket 和访问密钥。');
+      console.log(`🔍 检查${type}上传配置:`, {
+        hasTosConfig: !!tosConfig,
+        bucket: tosConfig?.bucket || '(未配置)',
+        region: tosConfig?.region || '(未配置)',
+        hasAccessKeyId: !!accessKeyId,
+        accessKeyIdLength: accessKeyId?.length || 0,
+        accessKeyIdType: typeof accessKeyId,
+        hasSecretAccessKey: !!secretAccessKey,
+        secretAccessKeyLength: secretAccessKey?.length || 0,
+        secretAccessKeyType: typeof secretAccessKey
+      });
+
+      // 检查配置完整性
+      if (!tosConfig || !tosConfig.bucket) {
+        throw new Error('TOS Bucket 未配置。\n\n请按以下步骤配置：\n1. 点击左侧菜单的"Settings"\n2. 找到"TOS 对象存储配置"\n3. 填写 Bucket 名称\n4. 点击"保存 TOS 配置"');
+      }
+      if (!tosConfig.region) {
+        throw new Error('TOS Region 未配置。\n\n请在设置页面配置 TOS Region（如: cn-beijing）');
+      }
+      if (!accessKeyId || accessKeyId.trim() === '') {
+        throw new Error('AccessKeyId 未配置。\n\n请在设置页面的"API 凭证配置"中填写 AccessKeyId');
+      }
+      if (!secretAccessKey || secretAccessKey.trim() === '') {
+        throw new Error('SecretAccessKey 未配置。\n\n请在设置页面的"API 凭证配置"中填写 SecretAccessKey');
       }
 
-      // 准备上传数据
-      const fileData = {
-        name: file.name,
-        type: file.type,
-        size: file.size,
-        buffer: arrayBuffer
-      };
+      console.log('✅ 配置检查通过，开始上传文件...');
 
-      const config = {
-        ...tosConfig,
-        accessKeyId,
-        secretAccessKey
-      };
-
-      // 使用IPC上传
+      // 优先使用Electron IPC（如果可用）
       if (window.electronAPI && window.electronAPI.uploadToTOS) {
+        console.log('🖥️ 使用 Electron IPC 上传文件');
+        // 读取文件为ArrayBuffer
+        const arrayBuffer = await file.arrayBuffer();
+        
+        // 准备上传数据
+        const fileData = {
+          name: file.name,
+          type: file.type,
+          size: file.size,
+          buffer: arrayBuffer
+        };
+
+        const config = {
+          ...tosConfig,
+          accessKeyId: accessKeyId.trim(),
+          secretAccessKey: secretAccessKey.trim()
+        };
+
         const result = await window.electronAPI.uploadToTOS(fileData, config);
         if (!result.success) {
           throw new Error(result.error?.message || '上传失败');
         }
+        console.log('✅ Electron IPC 上传成功:', result.url);
         return result.url;
       } else {
-        throw new Error('上传功能仅在桌面应用中可用');
+        // 使用HTTP API上传（Web浏览器环境）
+        console.log('🌐 使用 HTTP API 上传文件');
+        console.log('📤 调用参数:', {
+          fileName: file.name,
+          tosConfigBucket: tosConfig.bucket,
+          tosConfigRegion: tosConfig.region,
+          accessKeyIdProvided: !!accessKeyId,
+          secretAccessKeyProvided: !!secretAccessKey
+        });
+        
+        const result = await volcanoAPI.uploadToTOS(
+          file, 
+          tosConfig, 
+          accessKeyId.trim(), 
+          secretAccessKey.trim()
+        );
+        
+        if (!result.success) {
+          throw new Error(result.error || '上传失败');
+        }
+        console.log('✅ HTTP API 上传成功:', result.url);
+        return result.url;
       }
     } catch (error) {
-      console.error(`${type}上传失败:`, error);
+      console.error(`❌ ${type}上传失败:`, error);
       throw error;
     }
   };
@@ -558,14 +609,13 @@ function MotionImitation() {
           secretAccessKey: secretAccessKey
         };
 
-        // 使用IPC发送请求
+        // 优先使用Electron IPC，否则使用HTTP API
         if (window.electronAPI && window.electronAPI.submitJimengMotionImitationTask) {
-          console.log('🖥️ 使用即梦动作模仿接口提交任务');
+          console.log('🖥️ 使用 Electron IPC 提交即梦动作模仿任务');
           result = await window.electronAPI.submitJimengMotionImitationTask(requestData);
         } else {
-          console.log('⚠️ 未找到即梦动作模仿IPC接口，请使用Electron桌面应用');
-          showAlert('warning', '请使用Electron桌面应用以获得完整功能');
-          return;
+          console.log('🌐 使用 HTTP API 提交即梦动作模仿任务');
+          result = await volcanoAPI.submitJimengMotionImitationTask(requestData);
         }
       } else {
         // 旧版动作模仿接口
@@ -580,14 +630,13 @@ function MotionImitation() {
           secretAccessKey: secretAccessKey
         };
 
-        // 使用IPC发送请求
+        // 优先使用Electron IPC，否则使用HTTP API
         if (window.electronAPI && window.electronAPI.submitMotionImitationTask) {
-          console.log('🖥️ 使用经典动作模仿接口提交任务');
+          console.log('🖥️ 使用 Electron IPC 提交经典动作模仿任务');
           result = await window.electronAPI.submitMotionImitationTask(requestData);
         } else {
-          console.log('⚠️ 未找到IPC接口，请使用Electron桌面应用');
-          showAlert('warning', '请使用Electron桌面应用以获得完整功能');
-          return;
+          console.log('🌐 使用 HTTP API 提交经典动作模仿任务');
+          result = await volcanoAPI.submitMotionImitationTask(requestData);
         }
       }
       
@@ -1015,31 +1064,36 @@ function MotionImitation() {
                           </small>
                         </Alert>
                         
-                        <Alert variant="danger" className="py-2 px-3 mb-3">
+                        <Alert variant="info" className="py-2 px-3 mb-3">
                           <small>
-                            <i className="bi bi-exclamation-triangle-fill me-1"></i>
-                            <strong>⚠️ 重要：API仅支持URL方式，不支持本地文件上传！</strong><br/>
-                            <strong>⚠️ 如果任务一直"处理中"，99%是URL无效导致的！</strong><br/>
+                            <i className="bi bi-info-circle me-1"></i>
+                            <strong>💡 输入方式说明</strong><br/>
                             <br/>
-                            <strong>URL必须满足以下条件：</strong><br/>
-                            ✅ 可公网访问（不能是局域网或需要登录）<br/>
-                            ✅ 无防盗链限制（允许跨域访问）<br/>
-                            ✅ 使用HTTPS协议（推荐）<br/>
-                            ✅ 文件格式正确（图片: JPG/PNG, 视频: MP4）<br/>
+                            <strong>方式1: URL地址（推荐）</strong><br/>
+                            • 直接提供可访问的图片/视频URL<br/>
+                            • URL必须可公网访问、无防盗链<br/>
+                            • 推荐使用TOS、OSS、COS等对象存储<br/>
                             <br/>
-                            <strong>推荐使用：</strong>火山引擎TOS、阿里云OSS、腾讯云COS等对象存储服务
+                            <strong>方式2: 本地文件上传</strong><br/>
+                            • 自动上传文件到您的TOS存储桶<br/>
+                            • 需要先在设置中配置TOS信息<br/>
+                            • 支持图片（≤10MB）和视频（≤100MB）<br/>
+                            <br/>
+                            <strong>⚠️ 如果任务一直"处理中"：</strong><br/>
+                            很可能是URL无效导致的，请检查URL是否可访问
                           </small>
                         </Alert>
                         
                         <p><strong>使用步骤：</strong></p>
                         <ol>
                           <li>选择输入方式：URL地址 或 本地文件上传</li>
-                          <li><strong>如使用URL：</strong>填入可访问的图片和视频URL地址</li>
+                          <li><strong>如使用URL：</strong>直接填入可访问的图片和视频URL地址</li>
                           <li><strong>如使用本地文件：</strong>选择本地图片和视频文件
                             <ul>
-                              <li>⚠️ 需要先在设置页面配置 TOS 对象存储</li>
-                              <li>文件会自动上传到您的 TOS Bucket</li>
-                              <li>上传完成后自动获取URL并提交任务</li>
+                              <li>📋 前提条件：需要先在设置页面配置 TOS 对象存储（Bucket、Region）</li>
+                              <li>📤 上传流程：文件会自动上传到您的 TOS Bucket</li>
+                              <li>✅ 自动处理：上传完成后自动获取URL并提交任务</li>
+                              <li>🌐 支持环境：Web浏览器 和 Electron桌面应用 均支持</li>
                             </ul>
                           </li>
                           <li>点击"开始生成动作模仿视频"按钮</li>

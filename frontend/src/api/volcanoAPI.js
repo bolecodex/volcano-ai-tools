@@ -414,6 +414,456 @@ class VolcanoAPIClient {
       isElectron: false
     };
   }
+
+  /**
+   * 提交即梦3.0 Pro视频任务
+   */
+  async submitJimeng30ProVideoTask(requestData) {
+    try {
+      const body = {
+        req_key: 'jimeng_ti2v_v30_pro'
+      };
+
+      // 添加参数
+      if (requestData.prompt) body.prompt = requestData.prompt;
+      if (requestData.binary_data_base64) body.binary_data_base64 = requestData.binary_data_base64;
+      if (requestData.image_urls) body.image_urls = requestData.image_urls;
+      if (requestData.seed !== undefined && requestData.seed !== -1) body.seed = requestData.seed;
+      if (requestData.frames) body.frames = requestData.frames;
+      if (requestData.aspect_ratio) body.aspect_ratio = requestData.aspect_ratio;
+
+      console.log('📤 提交即梦3.0 Pro视频任务:', body);
+
+      const response = await fetch(`${this.baseURL}/api/volcano/visual/CVSync2AsyncSubmitTask`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Access-Key-Id': requestData.accessKeyId,
+          'X-Secret-Access-Key': requestData.secretAccessKey
+        },
+        body: JSON.stringify(body)
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        console.error('❌ 提交失败:', error);
+        return {
+          success: false,
+          error: error
+        };
+      }
+
+      const data = await response.json();
+      console.log('✅ 提交成功:', data);
+      return {
+        success: true,
+        data: data
+      };
+    } catch (error) {
+      console.error('❌ 异常:', error);
+      return {
+        success: false,
+        error: { message: error.message }
+      };
+    }
+  }
+
+  /**
+   * 查询即梦3.0 Pro视频任务
+   */
+  async queryJimeng30ProVideoTask(requestData) {
+    try {
+      const response = await fetch(`${this.baseURL}/api/volcano/visual/CVSync2AsyncGetResult/query`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Access-Key-Id': requestData.accessKeyId,
+          'X-Secret-Access-Key': requestData.secretAccessKey
+        },
+        body: JSON.stringify({
+          req_key: 'jimeng_ti2v_v30_pro',
+          task_id: requestData.task_id
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        return {
+          success: false,
+          error: error
+        };
+      }
+
+      const data = await response.json();
+      return {
+        success: true,
+        data: data
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: { message: error.message }
+      };
+    }
+  }
+
+  /**
+   * 提交OmniHuman数字人视频任务
+   */
+  async submitOmniHumanVideoTask(requestData) {
+    try {
+      const body = {
+        req_key: 'jimeng_realman_avatar_picture_create_video_omni_v15'
+      };
+
+      if (requestData.image_url) body.image_url = requestData.image_url;
+      if (requestData.audio_url) body.audio_url = requestData.audio_url;
+      if (requestData.mask_url) body.mask_url = requestData.mask_url;
+      if (requestData.prompt) body.prompt = requestData.prompt;
+      if (requestData.seed !== undefined && requestData.seed !== -1) body.seed = requestData.seed;
+      if (requestData.pe_fast_mode !== undefined) body.pe_fast_mode = requestData.pe_fast_mode;
+
+      const response = await fetch(`${this.baseURL}/api/volcano/visual/CVSync2AsyncSubmitTask`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Access-Key-Id': requestData.accessKeyId,
+          'X-Secret-Access-Key': requestData.secretAccessKey
+        },
+        body: JSON.stringify(body)
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        return {
+          success: false,
+          error: error
+        };
+      }
+
+      const data = await response.json();
+      return {
+        success: true,
+        data: data
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: { message: error.message }
+      };
+    }
+  }
+
+  /**
+   * 查询OmniHuman数字人视频任务
+   */
+  async queryOmniHumanVideoTask(requestData) {
+    try {
+      const response = await fetch(`${this.baseURL}/api/volcano/visual/CVSync2AsyncGetResult/query`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Access-Key-Id': requestData.accessKeyId,
+          'X-Secret-Access-Key': requestData.secretAccessKey
+        },
+        body: JSON.stringify({
+          req_key: 'jimeng_realman_avatar_picture_create_video_omni_v15',
+          task_id: requestData.task_id
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        return {
+          success: false,
+          error: error
+        };
+      }
+
+      const data = await response.json();
+      return {
+        success: true,
+        data: data
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: { message: error.message }
+      };
+    }
+  }
+
+  /**
+   * 上传文件到TOS
+   */
+  async uploadToTOS(file, tosConfig, accessKeyId, secretAccessKey) {
+    try {
+      // 参数验证
+      console.log('🔍 验证上传参数:', {
+        hasFile: !!file,
+        fileName: file?.name,
+        fileSize: file?.size,
+        hasTosConfig: !!tosConfig,
+        bucket: tosConfig?.bucket || '(空)',
+        region: tosConfig?.region || '(空)',
+        hasAccessKeyId: !!accessKeyId,
+        accessKeyIdLength: accessKeyId?.length || 0,
+        hasSecretAccessKey: !!secretAccessKey,
+        secretAccessKeyLength: secretAccessKey?.length || 0,
+        accessKeyIdType: typeof accessKeyId,
+        secretAccessKeyType: typeof secretAccessKey
+      });
+
+      if (!file) {
+        throw new Error('文件不能为空');
+      }
+      if (!tosConfig?.bucket) {
+        throw new Error('TOS Bucket 未配置，请在设置页面配置');
+      }
+      if (!tosConfig?.region) {
+        throw new Error('TOS Region 未配置，请在设置页面配置');
+      }
+      if (!accessKeyId || typeof accessKeyId !== 'string' || accessKeyId.trim() === '') {
+        console.error('⚠️ AccessKeyId 验证失败:', { accessKeyId, type: typeof accessKeyId });
+        throw new Error('AccessKeyId 未配置或无效，请在设置页面配置');
+      }
+      if (!secretAccessKey || typeof secretAccessKey !== 'string' || secretAccessKey.trim() === '') {
+        console.error('⚠️ SecretAccessKey 验证失败:', { secretAccessKey, type: typeof secretAccessKey });
+        throw new Error('SecretAccessKey 未配置或无效，请在设置页面配置');
+      }
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('bucket', tosConfig.bucket);
+      formData.append('region', tosConfig.region);
+      formData.append('access_key_id', accessKeyId);
+      formData.append('secret_access_key', secretAccessKey);
+
+      console.log('📤 开始上传文件到TOS:', {
+        fileName: file.name,
+        fileSize: file.size,
+        bucket: tosConfig.bucket,
+        region: tosConfig.region
+      });
+
+      const response = await fetch(`${this.baseURL}/api/tos/upload`, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        console.error('❌ TOS上传失败 (HTTP ' + response.status + '):', error);
+        
+        // 提取详细错误信息
+        let errorMessage = '上传失败';
+        if (error.detail) {
+          if (Array.isArray(error.detail)) {
+            // FastAPI 参数验证错误
+            errorMessage = error.detail.map(e => `${e.loc.join('.')}: ${e.msg}`).join('; ');
+          } else if (typeof error.detail === 'string') {
+            errorMessage = error.detail;
+          }
+        }
+        
+        return {
+          success: false,
+          error: errorMessage
+        };
+      }
+
+      const data = await response.json();
+      console.log('✅ TOS上传成功:', data);
+      return {
+        success: true,
+        url: data.url
+      };
+    } catch (error) {
+      console.error('❌ TOS上传异常:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * 提交即梦动作模仿任务
+   */
+  async submitJimengMotionImitationTask(requestData) {
+    try {
+      const body = {
+        req_key: 'jimeng_imitator_ii2v',
+        image_url: requestData.image_url,
+        video_url: requestData.video_url
+      };
+
+      console.log('📤 提交即梦动作模仿任务:', body);
+
+      const response = await fetch(`${this.baseURL}/api/volcano/visual/CVSync2AsyncSubmitTask`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Access-Key-Id': requestData.accessKeyId,
+          'X-Secret-Access-Key': requestData.secretAccessKey
+        },
+        body: JSON.stringify(body)
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        console.error('❌ 提交失败:', error);
+        return {
+          success: false,
+          error: error
+        };
+      }
+
+      const data = await response.json();
+      console.log('✅ 提交成功:', data);
+      return {
+        success: true,
+        data: data
+      };
+    } catch (error) {
+      console.error('❌ 异常:', error);
+      return {
+        success: false,
+        error: { message: error.message }
+      };
+    }
+  }
+
+  /**
+   * 查询即梦动作模仿任务
+   */
+  async queryJimengMotionImitationTask(requestData) {
+    try {
+      const response = await fetch(`${this.baseURL}/api/volcano/visual/CVSync2AsyncGetResult/query`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Access-Key-Id': requestData.accessKeyId,
+          'X-Secret-Access-Key': requestData.secretAccessKey
+        },
+        body: JSON.stringify({
+          req_key: 'jimeng_imitator_ii2v',
+          task_id: requestData.task_id
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        console.error('❌ 查询失败:', error);
+        return {
+          success: false,
+          error: error
+        };
+      }
+
+      const data = await response.json();
+      console.log('✅ 查询成功:', data);
+      return {
+        success: true,
+        data: data
+      };
+    } catch (error) {
+      console.error('❌ 异常:', error);
+      return {
+        success: false,
+        error: { message: error.message }
+      };
+    }
+  }
+
+  /**
+   * 提交经典动作模仿任务
+   */
+  async submitMotionImitationTask(requestData) {
+    try {
+      const body = {
+        req_key: requestData.req_key || 'realman_avatar_imitator_v2v_gen_video',
+        image_url: requestData.image_url,
+        driving_video_info: requestData.driving_video_info
+      };
+
+      console.log('📤 提交经典动作模仿任务:', body);
+
+      const response = await fetch(`${this.baseURL}/api/volcano/visual/CVSync2AsyncSubmitTask`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Access-Key-Id': requestData.accessKeyId,
+          'X-Secret-Access-Key': requestData.secretAccessKey
+        },
+        body: JSON.stringify(body)
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        console.error('❌ 提交失败:', error);
+        return {
+          success: false,
+          error: error
+        };
+      }
+
+      const data = await response.json();
+      console.log('✅ 提交成功:', data);
+      return {
+        success: true,
+        data: data
+      };
+    } catch (error) {
+      console.error('❌ 异常:', error);
+      return {
+        success: false,
+        error: { message: error.message }
+      };
+    }
+  }
+
+  /**
+   * 查询经典动作模仿任务
+   */
+  async queryMotionImitationTask(requestData) {
+    try {
+      const response = await fetch(`${this.baseURL}/api/volcano/visual/CVSync2AsyncGetResult/query`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Access-Key-Id': requestData.accessKeyId,
+          'X-Secret-Access-Key': requestData.secretAccessKey
+        },
+        body: JSON.stringify({
+          req_key: requestData.req_key || 'realman_avatar_imitator_v2v_gen_video',
+          task_id: requestData.task_id
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        console.error('❌ 查询失败:', error);
+        return {
+          success: false,
+          error: error
+        };
+      }
+
+      const data = await response.json();
+      console.log('✅ 查询成功:', data);
+      return {
+        success: true,
+        data: data
+      };
+    } catch (error) {
+      console.error('❌ 异常:', error);
+      return {
+        success: false,
+        error: { message: error.message }
+      };
+    }
+  }
 }
 
 // 创建单例实例
