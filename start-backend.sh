@@ -15,12 +15,12 @@ fi
 source venv/bin/activate
 
 # 检查依赖是否已安装
-if ! pip show fastapi > /dev/null 2>&1; then
+if ! python3 -m pip show fastapi > /dev/null 2>&1; then
     echo "正在安装依赖..."
-    pip install -r requirements.txt
+    python3 -m pip install -r requirements.txt
 fi
 
 # 启动服务
 echo "启动 FastAPI 服务..."
-python main.py
+python3 main.py
 

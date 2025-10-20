@@ -267,18 +267,31 @@ async def query_visual_task(
     - X-Access-Key-Id: 访问密钥ID
     - X-Secret-Access-Key: 访问密钥密钥
     """
-    result = await api_service.query_visual_task(
-        action=action,
-        version=version,
-        request_data=request.dict(),
-        access_key_id=x_access_key_id,
-        secret_access_key=x_secret_access_key
-    )
-    
-    if not result['success']:
-        raise HTTPException(status_code=500, detail=result['error'])
-    
-    return result['data']
+    try:
+        print(f"📥 收到查询请求: action={action}, version={version}")
+        print(f"🔑 Access Key ID: {x_access_key_id[:10]}...{x_access_key_id[-4:] if len(x_access_key_id) > 14 else ''}")
+        print(f"🔑 Secret Key: {'*' * 20}")
+        print(f"📝 查询数据: {request.dict()}")
+        
+        result = await api_service.query_visual_task(
+            action=action,
+            version=version,
+            request_data=request.dict(),
+            access_key_id=x_access_key_id,
+            secret_access_key=x_secret_access_key
+        )
+        
+        if not result['success']:
+            print(f"❌ 查询失败: {result.get('error')}")
+            raise HTTPException(status_code=500, detail=result['error'])
+        
+        print(f"✅ 查询成功")
+        return result['data']
+    except Exception as e:
+        print(f"❌ 异常: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise
 
 
 @router.get("/api/volcano/test")

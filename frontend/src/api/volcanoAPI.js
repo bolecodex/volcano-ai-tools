@@ -864,6 +864,93 @@ class VolcanoAPIClient {
       };
     }
   }
+
+  /**
+   * 提交视频编辑任务
+   */
+  async submitVideoEditTask(requestData) {
+    try {
+      const response = await fetch(`${this.baseURL}/api/volcano/visual/CVSync2AsyncSubmitTask`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Access-Key-Id': requestData.accessKeyId,
+          'X-Secret-Access-Key': requestData.secretAccessKey
+        },
+        body: JSON.stringify({
+          req_key: requestData.req_key || 'dm_seedance_videoedit_tob',
+          prompt: requestData.prompt,
+          video_url: requestData.video_url,
+          seed: requestData.seed,
+          max_frame: requestData.max_frame
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        console.error('❌ 视频编辑任务提交失败:', error);
+        return {
+          success: false,
+          error: error
+        };
+      }
+
+      const data = await response.json();
+      console.log('✅ 视频编辑任务提交成功:', data);
+      return {
+        success: true,
+        data: data
+      };
+    } catch (error) {
+      console.error('❌ 视频编辑任务提交异常:', error);
+      return {
+        success: false,
+        error: { message: error.message }
+      };
+    }
+  }
+
+  /**
+   * 查询视频编辑任务
+   */
+  async queryVideoEditTask(requestData) {
+    try {
+      const response = await fetch(`${this.baseURL}/api/volcano/visual/CVSync2AsyncGetResult/query`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Access-Key-Id': requestData.accessKeyId,
+          'X-Secret-Access-Key': requestData.secretAccessKey
+        },
+        body: JSON.stringify({
+          req_key: requestData.req_key || 'dm_seedance_videoedit_tob',
+          task_id: requestData.task_id
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        console.error('❌ 视频编辑任务查询失败:', error);
+        return {
+          success: false,
+          error: error
+        };
+      }
+
+      const data = await response.json();
+      console.log('✅ 视频编辑任务查询成功:', data);
+      return {
+        success: true,
+        data: data
+      };
+    } catch (error) {
+      console.error('❌ 视频编辑任务查询异常:', error);
+      return {
+        success: false,
+        error: { message: error.message }
+      };
+    }
+  }
 }
 
 // 创建单例实例

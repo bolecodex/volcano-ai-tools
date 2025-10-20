@@ -10,6 +10,7 @@ import hashlib
 import os
 from datetime import datetime
 from signature_v4 import SignatureV4
+import tos
 
 router = APIRouter()
 
@@ -64,49 +65,32 @@ async def upload_to_tos(
         host = f"{bucket}.tos-{region}.volces.com"
         url = f"https://{host}/{object_key}"
         
-        # 创建签名生成器
-        signer = SignatureV4(
-            access_key_id=access_key_id,
-            secret_access_key=secret_access_key,
-            service='tos',
-            region=region
+        # 使用官方 TOS SDK
+        auth = tos.auth.Auth(access_key_id, secret_access_key, region)
+        client = tos.TosClient(
+            auth=auth,
+            endpoint=f"https://tos-{region}.volces.com"
         )
         
-        # 准备请求头
-        headers = {
-            'Content-Type': 'application/octet-stream',
-            'Content-Length': str(len(file_data))
-        }
-        
-        # 生成签名
-        signed_headers = signer.sign('PUT', url, headers, body=None)
-        
         # 上传文件
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.put(
-                url,
-                content=file_data,
-                headers=signed_headers
-            )
-            
-            if response.status_code in [200, 201, 204]:
-                return {
-                    'success': True,
-                    'url': url
-                }
-            else:
-                error_msg = f"上传失败: HTTP {response.status_code}"
-                try:
-                    error_detail = response.text
-                    if error_detail:
-                        error_msg += f" - {error_detail}"
-                except:
-                    pass
-                
-                return {
-                    'success': False,
-                    'error': error_msg
-                }
+        response = client.put_object(
+            Bucket=bucket,
+            Key=object_key,
+            Body=file_data,
+            ContentType='application/octet-stream'
+        )
+        
+        # TOS SDK 成功上传会返回 PutObjectResult 对象
+        if response:
+            return {
+                'success': True,
+                'url': url
+            }
+        else:
+            return {
+                'success': False,
+                'error': "上传失败"
+            }
                 
     except Exception as e:
         return {

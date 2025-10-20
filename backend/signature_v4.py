@@ -40,6 +40,192 @@ class SignatureV4:
         Returns:
             包含签名的请求头字典
         """
+        if self.service == 'tos':
+            # 火山引擎 TOS 使用 TOS4-HMAC-SHA256 签名
+            return self._sign_tos(method, url, headers, body)
+        elif self.service == 'cv':
+            # 火山引擎视觉服务使用简单的 HMAC-SHA256 签名
+            return self._sign_cv(method, url, headers, body)
+        else:
+            # 其他服务使用 AWS4 签名
+            return self._sign_aws4(method, url, headers, body)
+    
+    def _sign_tos(self, method: str, url: str, headers: Dict[str, str], body: Optional[str] = None) -> Dict[str, str]:
+        """火山引擎 TOS 签名方法 - 使用 TOS4-HMAC-SHA256"""
+        # 解析URL
+        url_obj = urlparse(url)
+        host = url_obj.hostname
+        path = url_obj.path or '/'
+        query_string = url_obj.query or ''
+        
+        # 获取当前时间
+        now = datetime.utcnow()
+        timestamp = now.strftime('%Y%m%dT%H%M%SZ')
+        date_stamp = now.strftime('%Y%m%d')
+        
+        # 算法名称
+        algorithm = 'TOS4-HMAC-SHA256'
+        
+        # 构建规范请求
+        canonical_request = self._create_tos_canonical_request(
+            method, path, query_string, headers, body, host
+        )
+        
+        # 构建待签名字符串
+        credential_scope = f"{date_stamp}/{self.region}/tos/request"
+        string_to_sign = f"{algorithm}\n{timestamp}\n{credential_scope}\n{self._sha256_hash(canonical_request)}"
+        
+        # 计算签名密钥
+        signing_key = self._calculate_tos_signing_key(date_stamp)
+        
+        # 计算签名
+        signature = self._hmac_sha256_hex(string_to_sign, signing_key)
+        
+        # 构建Authorization头
+        signed_headers = self._get_signed_headers(headers)
+        authorization = f"{algorithm} Credential={self.access_key_id}/{credential_scope}, SignedHeaders={signed_headers}, Signature={signature}"
+        
+        # 返回签名后的headers
+        return {
+            **headers,
+            'Host': host,
+            'X-Tos-Date': timestamp,
+            'Authorization': authorization
+        }
+    
+    def _create_tos_canonical_request(self, method: str, path: str, query_string: str, 
+                                     headers: Dict[str, str], body: Optional[str], host: str) -> str:
+        """创建 TOS 规范请求"""
+        http_method = method.upper()
+        canonical_uri = self._get_canonical_uri(path)
+        canonical_query_string = self._get_canonical_query_string(query_string)
+        
+        # TOS 规范头部
+        canonical_headers = f"host:{host}\n"
+        signed_headers = "host"
+        
+        # 计算负载哈希
+        hashed_payload = self._sha256_hash(body or '')
+        
+        return '\n'.join([
+            http_method,
+            canonical_uri,
+            canonical_query_string,
+            canonical_headers,
+            signed_headers,
+            hashed_payload
+        ])
+    
+    def _calculate_tos_signing_key(self, date_stamp: str) -> bytes:
+        """计算 TOS 签名密钥"""
+        k_date = self._hmac_sha256(date_stamp, self.secret_access_key.encode('utf-8'))
+        k_region = self._hmac_sha256(self.region, k_date)
+        k_service = self._hmac_sha256('tos', k_region)
+        k_signing = self._hmac_sha256('request', k_service)
+        return k_signing
+    
+    def _sign_cv(self, method: str, url: str, headers: Dict[str, str], body: Optional[str] = None) -> Dict[str, str]:
+        """火山引擎视觉服务签名方法 - 使用火山引擎官方签名格式"""
+        # 解析URL
+        url_obj = urlparse(url)
+        host = url_obj.hostname
+        path = url_obj.path or '/'
+        query_string = url_obj.query or ''
+        
+        # 获取当前时间
+        now = datetime.utcnow()
+        timestamp = now.strftime('%Y%m%dT%H%M%SZ')
+        date_stamp = now.strftime('%Y%m%d')
+        
+        # 火山引擎使用 HMAC-SHA256 算法
+        algorithm = 'HMAC-SHA256'
+        
+        # 构建规范请求
+        canonical_request = self._create_volcano_canonical_request(
+            method, path, query_string, headers, body, host, timestamp
+        )
+        
+        # 构建待签名字符串
+        credential_scope = f"{date_stamp}/{self.region}/cv/request"
+        string_to_sign = f"{algorithm}\n{timestamp}\n{credential_scope}\n{self._sha256_hash(canonical_request)}"
+        
+        # 计算签名密钥 - 火山引擎的密钥派生方式
+        k_date = self._hmac_sha256(date_stamp, self.secret_access_key.encode('utf-8'))
+        k_region = self._hmac_sha256(self.region, k_date)
+        k_service = self._hmac_sha256('cv', k_region)
+        k_signing = self._hmac_sha256('request', k_service)
+        
+        # 计算签名
+        signature = self._hmac_sha256_hex(string_to_sign, k_signing)
+        
+        # 构建Authorization头 - 火山引擎格式
+        signed_headers = "host;x-date"
+        authorization = f"{algorithm} Credential={self.access_key_id}/{credential_scope}, SignedHeaders={signed_headers}, Signature={signature}"
+        
+        # 返回签名后的headers
+        return {
+            **headers,
+            'Host': host,
+            'X-Date': timestamp,
+            'Authorization': authorization
+        }
+    
+    def _create_volcano_canonical_request(self, method: str, path: str, query_string: str, 
+                                         headers: Dict[str, str], body: Optional[str], host: str, timestamp: str) -> str:
+        """创建火山引擎规范请求"""
+        http_method = method.upper()
+        canonical_uri = self._get_canonical_uri(path)
+        canonical_query_string = self._get_canonical_query_string(query_string)
+        
+        # 火山引擎规范头部 - 包含 host 和 x-date
+        canonical_headers = f"host:{host}\nx-date:{timestamp}\n"
+        signed_headers = "host;x-date"
+        
+        # 计算负载哈希
+        hashed_payload = self._sha256_hash(body or '')
+        
+        return '\n'.join([
+            http_method,
+            canonical_uri,
+            canonical_query_string,
+            canonical_headers,
+            signed_headers,
+            hashed_payload
+        ])
+    
+    def _create_cv_canonical_request(self, method: str, path: str, query_string: str, 
+                                    headers: Dict[str, str], body: Optional[str], host: str, timestamp: str) -> str:
+        """创建视觉服务规范请求"""
+        http_method = method.upper()
+        canonical_uri = self._get_canonical_uri(path)
+        canonical_query_string = self._get_canonical_query_string(query_string)
+        
+        # 视觉服务规范头部 - 包含 host 和 x-amz-date
+        canonical_headers = f"host:{host}\nx-amz-date:{timestamp}\n"
+        signed_headers = "host;x-amz-date"
+        
+        # 计算负载哈希
+        hashed_payload = self._sha256_hash(body or '')
+        
+        return '\n'.join([
+            http_method,
+            canonical_uri,
+            canonical_query_string,
+            canonical_headers,
+            signed_headers,
+            hashed_payload
+        ])
+    
+    def _calculate_cv_signing_key(self, date_stamp: str) -> bytes:
+        """计算视觉服务签名密钥"""
+        k_date = self._hmac_sha256(date_stamp, self.secret_access_key.encode('utf-8'))
+        k_region = self._hmac_sha256(self.region, k_date)
+        k_service = self._hmac_sha256('cv', k_region)
+        k_signing = self._hmac_sha256('request', k_service)
+        return k_signing
+    
+    def _sign_aws4(self, method: str, url: str, headers: Dict[str, str], body: Optional[str] = None) -> Dict[str, str]:
+        """AWS4 签名方法"""
         # 解析URL
         url_obj = urlparse(url)
         host = url_obj.hostname
@@ -51,8 +237,8 @@ class SignatureV4:
         timestamp = self._get_timestamp(now)
         date_stamp = self._get_date_stamp(now)
         
-        # 根据服务类型决定算法名称
-        algorithm = 'AWS4-HMAC-SHA256' if self.service == 'tos' else 'HMAC-SHA256'
+        # AWS4-HMAC-SHA256 签名算法
+        algorithm = 'AWS4-HMAC-SHA256'
         
         # 确保headers包含必要的字段
         sign_headers = {
@@ -122,9 +308,8 @@ class SignatureV4:
     
     def _calculate_signature(self, date_stamp: str, string_to_sign: str) -> str:
         """计算签名"""
-        # 对于TOS（AWS S3兼容），密钥需要加上"AWS4"前缀
-        secret_key = f"AWS4{self.secret_access_key}" if self.service == 'tos' else self.secret_access_key
-        
+        # 所有服务都使用 AWS4 签名
+        secret_key = f"AWS4{self.secret_access_key}"
         k_date = self._hmac_sha256(date_stamp, secret_key)
         k_region = self._hmac_sha256(self.region, k_date)
         k_service = self._hmac_sha256(self.service, k_region)
@@ -204,4 +389,6 @@ class SignatureV4:
     def _get_date_stamp(self, date: datetime) -> str:
         """获取日期戳 (YYYYMMDD)"""
         return date.strftime('%Y%m%d')
+
+
 

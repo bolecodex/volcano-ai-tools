@@ -90,6 +90,16 @@ function VideoEditor() {
       const accessKeyId = storage.getAccessKeyId();
       const secretAccessKey = storage.getSecretAccessKey();
       const tosConfig = storage.getTosConfig();
+      
+      console.log('🔍 调试AccessKey获取:', {
+        accessKeyId: accessKeyId,
+        secretAccessKey: secretAccessKey,
+        accessKeyIdType: typeof accessKeyId,
+        secretAccessKeyType: typeof secretAccessKey,
+        localStorageKeys: Object.keys(localStorage),
+        volcengine_access_key_id: localStorage.getItem('volcengine_access_key_id'),
+        volcengine_secret_access_key: localStorage.getItem('volcengine_secret_access_key')
+      });
 
       if (!tosConfig.bucket || !tosConfig.region) {
         throw new Error('请先在设置中配置 TOS Bucket 和 Region');
@@ -102,24 +112,12 @@ function VideoEditor() {
       const reader = new FileReader();
       reader.onload = async (event) => {
         try {
-          const arrayBuffer = event.target.result;
-          // 将 ArrayBuffer 转换为 Uint8Array，然后转换为普通数组
-          const uint8Array = new Uint8Array(arrayBuffer);
-          const buffer = Array.from(uint8Array);
-
+          // 在 web 环境下，直接使用原始文件对象
           const result = await window.electronAPI.uploadToTOS(
-            {
-              buffer: buffer,
-              name: file.name,  // 原始文件名
-              size: file.size,  // 文件大小
-              type: file.type   // 文件类型
-            },
-            {
-              accessKeyId: accessKeyId,
-              secretAccessKey: secretAccessKey,
-              region: tosConfig.region,
-              bucket: tosConfig.bucket
-            }
+            file,  // 直接传递文件对象
+            tosConfig,  // TOS 配置对象
+            accessKeyId,  // 访问密钥ID
+            secretAccessKey  // 秘密访问密钥
           );
 
           if (result.success) {
@@ -182,21 +180,18 @@ function VideoEditor() {
         throw new Error('请先在设置中配置访问密钥');
       }
 
-      // 提交任务
+      // 提交任务（按照API文档格式）
       const requestData = {
-        accessKeyId: accessKeyId,
-        secretAccessKey: secretAccessKey,
+        req_key: 'dm_seedance_videoedit_tob', // 固定值
         prompt: formData.prompt,
-        video_url: formData.videoUrl
+        video_url: formData.videoUrl,
+        seed: formData.seed === -1 ? -1 : parseInt(formData.seed),
+        max_frame: formData.maxFrame,
+        accessKeyId: accessKeyId,
+        secretAccessKey: secretAccessKey
       };
 
-      // 添加可选参数
-      if (formData.seed !== -1) {
-        requestData.seed = formData.seed;
-      }
-      if (formData.maxFrame !== 121) {
-        requestData.max_frame = formData.maxFrame;
-      }
+      console.log('提交任务数据:', requestData);
 
       const result = await window.electronAPI.submitVideoEditTask(requestData);
 
@@ -246,11 +241,15 @@ function VideoEditor() {
         throw new Error('请先在设置中配置访问密钥');
       }
 
-      const result = await window.electronAPI.queryVideoEditTask({
-        accessKeyId: accessKeyId,
-        secretAccessKey: secretAccessKey,
+      // 查询任务（按照API文档格式）
+      const requestData = {
+        req_key: 'dm_seedance_videoedit_tob', // 固定值
         task_id: taskId
-      });
+      };
+
+      console.log('查询任务数据:', requestData);
+
+      const result = await window.electronAPI.queryVideoEditTask(requestData);
 
       if (result.success) {
         const updates = {
