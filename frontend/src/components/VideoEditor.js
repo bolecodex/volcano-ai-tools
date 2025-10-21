@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Container, Row, Col, Card, Form, Button, Alert, Badge, Spinner, Modal, Table } from 'react-bootstrap';
 import { storage } from '../utils/storage';
+import volcanoAPI from '../api/volcanoAPI';
 
 function VideoEditor() {
   // ===== 状态管理 =====
@@ -9,7 +10,7 @@ function VideoEditor() {
     videoUrl: '',
     videoFile: null,
     seed: -1,
-    maxFrame: 121
+    maxFrame: 49  // 改为49帧，对应2秒视频，更保守的设置
   });
 
   const [alert, setAlert] = useState({ show: false, variant: '', message: '' });
@@ -73,6 +74,12 @@ function VideoEditor() {
       return;
     }
 
+    // 检查视频格式
+    const supportedFormats = ['video/mp4', 'video/avi', 'video/mov', 'video/wmv', 'video/flv', 'video/webm'];
+    if (!supportedFormats.includes(file.type)) {
+      showAlert('warning', `当前视频格式 ${file.type} 可能不被支持，建议转换为MP4格式`);
+    }
+
     // 检查文件大小（15MB限制）
     const maxSize = 15 * 1024 * 1024; // 15MB
     if (file.size > maxSize) {
@@ -87,6 +94,15 @@ function VideoEditor() {
       setUploadProgress(0);
       showAlert('info', '正在上传视频到 TOS...');
 
+      // 视频格式验证
+      if (!file.type.startsWith('video/')) {
+        throw new Error('请选择视频文件');
+      }
+      
+      if (file.size > 15 * 1024 * 1024) { // 15MB
+        throw new Error('视频文件大小不能超过15MB');
+      }
+      
       const accessKeyId = storage.getAccessKeyId();
       const secretAccessKey = storage.getSecretAccessKey();
       const tosConfig = storage.getTosConfig();
@@ -112,8 +128,12 @@ function VideoEditor() {
       const reader = new FileReader();
       reader.onload = async (event) => {
         try {
-          // 在 web 环境下，直接使用原始文件对象
-          const result = await window.electronAPI.uploadToTOS(
+          const arrayBuffer = event.target.result;
+          // 将 ArrayBuffer 转换为 Uint8Array，然后转换为普通数组
+          const uint8Array = new Uint8Array(arrayBuffer);
+          const buffer = Array.from(uint8Array);
+
+          const result = await volcanoAPI.uploadToTOS(
             file,  // 直接传递文件对象
             tosConfig,  // TOS 配置对象
             accessKeyId,  // 访问密钥ID
@@ -193,7 +213,7 @@ function VideoEditor() {
 
       console.log('提交任务数据:', requestData);
 
-      const result = await window.electronAPI.submitVideoEditTask(requestData);
+      const result = await volcanoAPI.submitVideoEditTask(requestData);
 
       if (result.success) {
         const task = {
@@ -244,12 +264,14 @@ function VideoEditor() {
       // 查询任务（按照API文档格式）
       const requestData = {
         req_key: 'dm_seedance_videoedit_tob', // 固定值
-        task_id: taskId
+        task_id: taskId,
+        accessKeyId: accessKeyId,
+        secretAccessKey: secretAccessKey
       };
 
       console.log('查询任务数据:', requestData);
 
-      const result = await window.electronAPI.queryVideoEditTask(requestData);
+      const result = await volcanoAPI.queryVideoEditTask(requestData);
 
       if (result.success) {
         const updates = {
@@ -263,6 +285,24 @@ function VideoEditor() {
         // 处理服务器内部错误
         if (result.data.server_error) {
           showAlert('warning', `⚠️ ${result.data.message || '任务处理中，请稍后重试'}`);
+          return result.data;
+        }
+
+        // 处理火山引擎API错误
+        if (result.data.error_code && result.data.error_code !== '10000') {
+          let errorMessage = result.data.message || '未知错误';
+          
+          // 特殊处理视频加载错误
+          if (errorMessage.includes('could not be loaded with cv') || errorMessage.includes('VHS_LoadVideoPath')) {
+            errorMessage = '视频文件无法被处理，可能原因：\n' +
+              '1. 视频格式不支持（建议使用标准MP4格式）\n' +
+              '2. 视频文件损坏\n' +
+              '3. 视频文件无法访问（请检查TOS权限设置）\n' +
+              '4. 视频文件过大或时长过长\n\n' +
+              '建议：重新上传一个标准的MP4格式视频文件';
+          }
+          
+          showAlert('danger', `❌ 任务处理失败: ${errorMessage}`);
           return result.data;
         }
 
@@ -324,10 +364,10 @@ function VideoEditor() {
 
   // ===== 最大帧数选项 =====
   const maxFrameOptions = [
-    { value: 49, label: '49帧 (约2秒)' },
+    { value: 49, label: '49帧 (约2秒) - 推荐' },
     { value: 73, label: '73帧 (约3秒)' },
     { value: 97, label: '97帧 (约4秒)' },
-    { value: 121, label: '121帧 (约5秒) - 推荐' },
+    { value: 121, label: '121帧 (约5秒)' },
     { value: 145, label: '145帧 (约6秒)' },
     { value: 169, label: '169帧 (约7秒)' },
     { value: 193, label: '193帧 (约8秒)' },
@@ -386,7 +426,9 @@ function VideoEditor() {
                   disabled={loading}
                 />
                 <Form.Text className="text-muted">
-                  建议：文件≤15MB，分辨率≤1080P，时长≤10秒，格式为MP4
+                  <strong>建议：</strong>文件≤15MB，分辨率≤1080P，时长≤10秒，格式为MP4
+                  <br />
+                  <strong>格式转换：</strong>如果视频格式不支持，可使用在线转换工具或FFmpeg转换为MP4格式
                 </Form.Text>
                 {uploadProgress > 0 && uploadProgress < 100 && (
                   <div className="progress mt-2">
@@ -416,7 +458,9 @@ function VideoEditor() {
                   disabled={loading}
                 />
                 <Form.Text className="text-danger">
-                  ⚠️ 请确保视频URL公网可访问！如果使用TOS，请确保Bucket有公共读权限
+                  ⚠️ 重要：当前TOS Bucket没有公共读权限，导致视频无法被火山引擎访问！
+                  <br />
+                  💡 解决方案：1) 在火山引擎控制台配置TOS Bucket公共读权限 2) 使用其他公网可访问的视频URL
                 </Form.Text>
               </Form.Group>
 
@@ -479,7 +523,7 @@ function VideoEditor() {
                       ))}
                     </Form.Select>
                     <Form.Text className="text-muted">
-                      控制输出视频的最长时长（FPS固定为24）
+                      💡 建议从2秒开始测试，成功后再尝试更长的视频
                     </Form.Text>
                   </Form.Group>
                 </Card.Body>
@@ -519,7 +563,8 @@ function VideoEditor() {
               <ul className="mb-2">
                 <li>支持通过文本指令对视频进行智能编辑</li>
                 <li>可以替换、新增或删除视频画面元素</li>
-                <li>输入视频建议小于等于10秒，文件小于等于15MB</li>
+                <li><strong>视频格式要求：</strong>推荐MP4格式，支持AVI、MOV、WMV、FLV、WEBM</li>
+                <li><strong>视频规格：</strong>建议≤10秒，文件≤15MB，分辨率≤1080P</li>
                 <li>输出视频固定720P，FPS为24</li>
                 <li>每次编辑使用单指令效果更好</li>
                 <li>局部编辑时描述要精准，尤其是有多个实体时</li>

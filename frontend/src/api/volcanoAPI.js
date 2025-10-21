@@ -939,6 +939,19 @@ class VolcanoAPIClient {
 
       const data = await response.json();
       console.log('✅ 视频编辑任务查询成功:', data);
+      
+      // 检查响应数据中是否包含错误信息
+      if (data.error_code && data.error_code !== '10000') {
+        console.error('❌ API返回错误:', data);
+        return {
+          success: false,
+          error: {
+            message: data.message || 'API返回错误',
+            code: data.error_code
+          }
+        };
+      }
+      
       return {
         success: true,
         data: data

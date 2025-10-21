@@ -348,56 +348,119 @@ class VolcanoAPIService:
             任务查询结果
         """
         try:
+            print(f"🔍 开始查询视觉任务: action={action}, task_id={request_data.get('task_id')}")
+            
             # 构建请求 - 只包含非None的字段
             clean_data = {k: v for k, v in request_data.items() if v is not None}
+            print(f"📝 清理后的请求数据: {clean_data}")
             
             url = f"{self.visual_base_url}/?Action={action}&Version={version}"
             body = json.dumps(clean_data)
+            print(f"🌐 请求URL: {url}")
             
             # 生成签名
-            signer = SignatureV4(access_key_id, secret_access_key, service='cv', region='cn-north-1')
+            print(f"🔐 准备生成签名...")
+            # 对于视频编辑任务，使用cv服务类型，区域使用官方文档指定的cn-north-1
+            region = 'cn-north-1'  # 所有视觉任务统一使用cn-north-1区域以匹配官方文档要求
+            signer = SignatureV4(access_key_id, secret_access_key, service='cv', region=region)
             headers = signer.sign('POST', url, {'Content-Type': 'application/json'}, body)
+            print(f"✅ 签名生成成功")
             
+            # 打印签名信息但不包含敏感内容
+            masked_headers = {k: (v[:10] + '...' + v[-4:] if k == 'Authorization' and len(v) > 14 else v) 
+                             for k, v in headers.items()}
+            print(f"📋 请求头: {masked_headers}")
+            
+            # 发送请求
+            print(f"📤 发送API请求...")
             async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    url,
-                    headers=headers,
-                    content=body,
-                    timeout=30.0
-                )
-                
-                if response.status_code != 200:
+                try:
+                    response = await client.post(
+                        url,
+                        headers=headers,
+                        content=body,
+                        timeout=60.0  # 增加超时时间
+                    )
+                    print(f"📥 收到响应: HTTP {response.status_code}")
+                    
+                    # 打印响应内容（限制长度以保护隐私）
+                    response_text = response.text
+                    if len(response_text) > 500:
+                        response_text = response_text[:500] + "... (truncated)"
+                    print(f"📊 响应内容: {response_text}")
+                    
+                    if response.status_code != 200:
+                        print(f"❌ 响应状态码错误: {response.status_code}")
+                        return {
+                            'success': False,
+                            'error': {
+                                'message': f'HTTP {response.status_code}: {response_text}',
+                                'code': 'VISUAL_API_ERROR'
+                            }
+                        }
+                    
+                    # 解析火山引擎API响应
+                    try:
+                        api_response = response.json()
+                        print(f"🔍 解析响应成功: code={api_response.get('code')}, message={api_response.get('message')}")
+                    except json.JSONDecodeError as e:
+                        print(f"❌ JSON解析错误: {str(e)}")
+                        return {
+                            'success': False,
+                            'error': {
+                                'message': f'Invalid JSON response: {str(e)}',
+                                'code': 'JSON_PARSE_ERROR'
+                            }
+                        }
+                    
+                    # 火山引擎返回格式: { code: 10000, message: "xxx", data: {...} }
+                    if api_response.get('code') == 10000:
+                        print(f"✅ 查询成功，返回数据: {api_response.get('data')}")
+                        return {
+                            'success': True,
+                            'data': api_response.get('data', {})
+                        }
+                    else:
+                        print(f"❌ API返回错误码: {api_response.get('code')}, 消息: {api_response.get('message')}")
+                        # 将错误信息也包含在data中，以便前端能够访问
+                        error_data = {
+                            'error_code': str(api_response.get('code', 'UNKNOWN')),
+                            'message': api_response.get('message', 'Unknown error'),
+                            'status': 'error'
+                        }
+                        return {
+                            'success': True,  # 保持success为True，让前端能够处理错误信息
+                            'data': error_data
+                        }
+                except httpx.RequestError as e:
+                    print(f"❌ HTTP请求错误: {str(e)}")
                     return {
                         'success': False,
                         'error': {
-                            'message': f'HTTP {response.status_code}: {response.text}',
-                            'code': 'VISUAL_API_ERROR'
+                            'message': f'Request error: {str(e)}',
+                            'code': 'HTTP_REQUEST_ERROR'
                         }
                     }
-                
-                # 解析火山引擎API响应
-                api_response = response.json()
-                
-                # 火山引擎返回格式: { code: 10000, message: "xxx", data: {...} }
-                if api_response.get('code') == 10000:
-                    return {
-                        'success': True,
-                        'data': api_response.get('data', {})
-                    }
-                else:
+                except Exception as e:
+                    print(f"❌ 请求处理异常: {type(e).__name__}: {str(e)}")
+                    import traceback
+                    traceback.print_exc()
                     return {
                         'success': False,
                         'error': {
-                            'message': api_response.get('message', 'Unknown error'),
-                            'code': str(api_response.get('code', 'UNKNOWN'))
+                            'message': f'Request processing error: {str(e)}',
+                            'code': 'PROCESSING_ERROR'
                         }
                     }
                 
         except Exception as e:
+            print(f"❌ 整个查询过程异常: {type(e).__name__}: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return {
                 'success': False,
                 'error': {
-                    'message': str(e),
+                    'message': f'Query task failed: {str(e)}',
                     'code': 'VISUAL_API_ERROR'
                 }
             }

@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TOS权限测试</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { color: green; background: #e6ffe6; padding: 10px; border-radius: 5px; margin: 10px 0; }
+        .error { color: red; background: #ffe6e6; padding: 10px; border-radius: 5px; margin: 10px 0; }
+        .warning { color: orange; background: #fff3cd; padding: 10px; border-radius: 5px; margin: 10px 0; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        input, textarea { width: 100%; padding: 8px; margin: 5px 0; }
+        .result { margin: 10px 0; padding: 10px; background: #f8f9fa; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>🔧 TOS权限诊断工具</h1>
+    
+    <div class="test-section">
+        <h3>1. 测试视频URL访问</h3>
+        <input type="text" id="videoUrl" placeholder="输入视频URL" 
+               value="https://zhaoweibo-video-demo.tos-cn-beijing.volces.com/uploads/20251021_224945_60bb1786.mp4">
+        <button onclick="testVideoAccess()">测试访问</button>
+        <div id="videoResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>2. 测试TOS上传</h3>
+        <input type="file" id="testFile" accept="video/*">
+        <button onclick="testTOSUpload()">测试上传</button>
+        <div id="uploadResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>3. 权限诊断</h3>
+        <div id="diagnosis" class="result">
+            <h4>🔍 诊断结果：</h4>
+            <div class="error">
+                <strong>❌ 问题确认：TOS Bucket权限问题</strong><br>
+                视频文件返回403 Forbidden，说明Bucket没有公共读权限。<br>
+                这就是为什么火山引擎无法访问视频文件的原因。
+            </div>
+            
+            <h4>可能的问题：</h4>
+            <ul>
+                <li><strong>✅ 已确认：TOS Bucket权限问题</strong>：Bucket没有设置公共读权限</li>
+                <li><strong>文件不存在</strong>：上传的文件可能没有成功保存</li>
+                <li><strong>路径错误</strong>：文件路径可能不正确</li>
+                <li><strong>跨域问题</strong>：CORS设置可能阻止访问</li>
+            </ul>
+            
+            <h4>解决方案：</h4>
+            <ol>
+                <li><strong>🔥 立即解决：设置TOS Bucket公共读权限</strong>：
+                    <ul>
+                        <li>登录火山引擎控制台：<a href="https://console.volcengine.com" target="_blank">https://console.volcengine.com</a></li>
+                        <li>进入TOS服务</li>
+                        <li>找到Bucket：<code>zhaoweibo-video-demo</code></li>
+                        <li>进入"权限管理" → "公共读权限"</li>
+                        <li>设置为"允许"并保存</li>
+                        <li><strong>这是最直接的解决方案！</strong></li>
+                    </ul>
+                </li>
+                <li><strong>临时方案：使用预签名URL</strong>：
+                    <ul>
+                        <li>如果Bucket必须保持私有，需要生成预签名URL</li>
+                        <li>预签名URL有时效性，需要定期更新</li>
+                        <li>需要修改代码以支持预签名URL</li>
+                    </ul>
+                </li>
+                <li><strong>替代方案：使用其他云存储</strong>：
+                    <ul>
+                        <li>使用阿里云OSS、腾讯云COS等</li>
+                        <li>确保有公共读权限</li>
+                        <li>或者使用CDN服务</li>
+                    </ul>
+                </li>
+            </ol>
+            
+            <div class="warning">
+                <strong>⚠️ 重要提示：</strong><br>
+                火山引擎的视频编辑服务需要能够直接访问视频文件。<br>
+                如果视频文件无法公开访问，服务将无法处理视频内容。
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function testVideoAccess() {
+            const url = document.getElementById('videoUrl').value;
+            const resultDiv = document.getElementById('videoResult');
+            
+            if (!url) {
+                resultDiv.innerHTML = '<div class="error">请输入视频URL</div>';
+                return;
+            }
+            
+            resultDiv.innerHTML = '<div>正在测试访问...</div>';
+            
+            try {
+                const response = await fetch(url, { method: 'HEAD' });
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            ✅ 视频URL可以访问<br>
+                            状态码: ${response.status}<br>
+                            内容类型: ${response.headers.get('content-type') || '未知'}<br>
+                            文件大小: ${response.headers.get('content-length') || '未知'} 字节
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            ❌ 视频URL无法访问<br>
+                            状态码: ${response.status}<br>
+                            错误: ${response.statusText}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        ❌ 访问失败<br>
+                        错误: ${error.message}
+                    </div>
+                `;
+            }
+        }
+        
+        async function testTOSUpload() {
+            const fileInput = document.getElementById('testFile');
+            const resultDiv = document.getElementById('uploadResult');
+            
+            if (!fileInput.files[0]) {
+                resultDiv.innerHTML = '<div class="error">请选择文件</div>';
+                return;
+            }
+            
+            const file = fileInput.files[0];
+            resultDiv.innerHTML = '<div>正在上传文件...</div>';
+            
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('bucket', 'zhaoweibo-video-demo');
+                formData.append('region', 'cn-beijing');
+                formData.append('access_key_id', 'YOUR_ACCESS_KEY_ID');
+                formData.append('secret_access_key', 'YOUR_SECRET_ACCESS_KEY');
+                
+                const response = await fetch('http://localhost:8000/api/tos/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            ✅ 上传成功<br>
+                            文件URL: <a href="${result.url}" target="_blank">${result.url}</a><br>
+                            <button onclick="testVideoAccess()">测试新URL访问</button>
+                        </div>
+                    `;
+                    // 更新测试URL
+                    document.getElementById('videoUrl').value = result.url;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            ❌ 上传失败<br>
+                            错误: ${result.error}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        ❌ 上传异常<br>
+                        错误: ${error.message}
+                    </div>
+                `;
+            }
+        }
+        
+        // 页面加载时自动测试当前URL
+        window.onload = function() {
+            testVideoAccess();
+        };
+    </script>
+</body>
+</html>
