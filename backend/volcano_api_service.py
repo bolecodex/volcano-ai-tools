@@ -87,6 +87,9 @@ class VolcanoAPIService:
             任务创建结果
         """
         try:
+            print(f"🚀 开始创建视频任务: model={request_data.get('model')}")
+            print(f"📋 任务内容: {request_data.get('content')}")
+            
             async with httpx.AsyncClient() as client:
                 response = await client.post(
                     f"{self.base_url}/api/v3/contents/generations/tasks",
@@ -103,25 +106,36 @@ class VolcanoAPIService:
                     timeout=60.0
                 )
                 
+                print(f"📡 API响应状态: {response.status_code}")
+                print(f"📄 API响应内容: {response.text[:500]}...")
+                
                 if response.status_code != 200:
+                    error_msg = f'HTTP {response.status_code}: {response.text}'
+                    print(f"❌ API调用失败: {error_msg}")
                     return {
                         'success': False,
                         'error': {
-                            'message': f'HTTP {response.status_code}: {response.text}',
+                            'message': error_msg,
                             'code': 'VIDEO_API_ERROR'
                         }
                     }
                 
+                response_data = response.json()
+                print(f"✅ 视频任务创建成功: {response_data}")
                 return {
                     'success': True,
-                    'data': response.json()
+                    'data': response_data
                 }
                 
         except Exception as e:
+            error_msg = f"视频任务创建异常: {type(e).__name__}: {str(e)}"
+            print(f"❌ {error_msg}")
+            import traceback
+            traceback.print_exc()
             return {
                 'success': False,
                 'error': {
-                    'message': str(e),
+                    'message': error_msg,
                     'code': 'VIDEO_API_ERROR'
                 }
             }

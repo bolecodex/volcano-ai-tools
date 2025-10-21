@@ -432,20 +432,35 @@ function MotionImitation() {
   const uploadFileToTOS = async (file, type) => {
     try {
       // 获取TOS配置和访问密钥
+      console.log('🔍 检查 storage 对象:', {
+        storageType: typeof storage,
+        hasGetTOSConfig: typeof storage.getTOSConfig,
+        hasGetAccessKeyId: typeof storage.getAccessKeyId,
+        hasGetSecretAccessKey: typeof storage.getSecretAccessKey
+      });
+      
       const tosConfig = storage.getTOSConfig();
-      const accessKeyId = storage.getAccessKeyId();
-      const secretAccessKey = storage.getSecretAccessKey();
+      const uploadAccessKeyId = storage.getAccessKeyId();
+      const uploadSecretAccessKey = storage.getSecretAccessKey();
+      
+      console.log('🔍 获取到的值:', {
+        tosConfig: tosConfig,
+        accessKeyId: uploadAccessKeyId,
+        accessKeyIdType: typeof uploadAccessKeyId,
+        secretAccessKey: uploadSecretAccessKey,
+        secretAccessKeyType: typeof uploadSecretAccessKey
+      });
 
       console.log(`🔍 检查${type}上传配置:`, {
         hasTosConfig: !!tosConfig,
         bucket: tosConfig?.bucket || '(未配置)',
         region: tosConfig?.region || '(未配置)',
-        hasAccessKeyId: !!accessKeyId,
-        accessKeyIdLength: accessKeyId?.length || 0,
-        accessKeyIdType: typeof accessKeyId,
-        hasSecretAccessKey: !!secretAccessKey,
-        secretAccessKeyLength: secretAccessKey?.length || 0,
-        secretAccessKeyType: typeof secretAccessKey
+        hasAccessKeyId: !!uploadAccessKeyId,
+        accessKeyIdLength: uploadAccessKeyId?.length || 0,
+        accessKeyIdType: typeof uploadAccessKeyId,
+        hasSecretAccessKey: !!uploadSecretAccessKey,
+        secretAccessKeyLength: uploadSecretAccessKey?.length || 0,
+        secretAccessKeyType: typeof uploadSecretAccessKey
       });
 
       // 检查配置完整性
@@ -455,10 +470,10 @@ function MotionImitation() {
       if (!tosConfig.region) {
         throw new Error('TOS Region 未配置。\n\n请在设置页面配置 TOS Region（如: cn-beijing）');
       }
-      if (!accessKeyId || accessKeyId.trim() === '') {
+      if (!uploadAccessKeyId || uploadAccessKeyId.trim() === '') {
         throw new Error('AccessKeyId 未配置。\n\n请在设置页面的"API 凭证配置"中填写 AccessKeyId');
       }
-      if (!secretAccessKey || secretAccessKey.trim() === '') {
+      if (!uploadSecretAccessKey || uploadSecretAccessKey.trim() === '') {
         throw new Error('SecretAccessKey 未配置。\n\n请在设置页面的"API 凭证配置"中填写 SecretAccessKey');
       }
 
@@ -479,9 +494,10 @@ function MotionImitation() {
         };
 
         const config = {
-          ...tosConfig,
-          accessKeyId: accessKeyId.trim(),
-          secretAccessKey: secretAccessKey.trim()
+          accessKeyId: uploadAccessKeyId.trim(),
+          secretAccessKey: uploadSecretAccessKey.trim(),
+          region: tosConfig.region,
+          bucket: tosConfig.bucket
         };
 
         const result = await window.electronAPI.uploadToTOS(fileData, config);
@@ -497,15 +513,34 @@ function MotionImitation() {
           fileName: file.name,
           tosConfigBucket: tosConfig.bucket,
           tosConfigRegion: tosConfig.region,
-          accessKeyIdProvided: !!accessKeyId,
-          secretAccessKeyProvided: !!secretAccessKey
+          accessKeyIdProvided: !!uploadAccessKeyId,
+          accessKeyIdValue: uploadAccessKeyId,
+          accessKeyIdType: typeof uploadAccessKeyId,
+          secretAccessKeyProvided: !!uploadSecretAccessKey,
+          secretAccessKeyValue: uploadSecretAccessKey,
+          secretAccessKeyType: typeof uploadSecretAccessKey
+        });
+        
+        // 确保参数不为空
+        if (!uploadAccessKeyId || !uploadSecretAccessKey) {
+          throw new Error('AccessKeyId 或 SecretAccessKey 未配置，请在设置页面配置');
+        }
+        
+        // 在调用前再次检查参数
+        console.log('🔍 调用 volcanoAPI.uploadToTOS 前的参数检查:', {
+          accessKeyId: uploadAccessKeyId,
+          accessKeyIdType: typeof uploadAccessKeyId,
+          accessKeyIdLength: uploadAccessKeyId?.length,
+          secretAccessKey: uploadSecretAccessKey,
+          secretAccessKeyType: typeof uploadSecretAccessKey,
+          secretAccessKeyLength: uploadSecretAccessKey?.length
         });
         
         const result = await volcanoAPI.uploadToTOS(
           file, 
           tosConfig, 
-          accessKeyId.trim(), 
-          secretAccessKey.trim()
+          uploadAccessKeyId.trim(), 
+          uploadSecretAccessKey.trim()
         );
         
         if (!result.success) {
@@ -684,16 +719,19 @@ function MotionImitation() {
         const errorMessage = result.error?.message || result.error || '未知错误';
         console.error('Task submission failed:', result);
         
-        // 提供更详细的错误信息
-        let userMessage = `提交任务失败: ${errorMessage}`;
+        // 确保 errorMessage 是字符串类型
+        const errorStr = typeof errorMessage === 'string' ? errorMessage : JSON.stringify(errorMessage);
         
-        if (errorMessage.includes('504') || errorMessage.includes('Gateway Time-out')) {
+        // 提供更详细的错误信息
+        let userMessage = `提交任务失败: ${errorStr}`;
+        
+        if (errorStr.includes('504') || errorStr.includes('Gateway Time-out')) {
           userMessage = '提交任务失败: 网关超时。可能原因：1) 文件过大（建议使用URL方式） 2) 网络问题 3) 服务器繁忙。请稍后重试或使用较小的文件。';
-        } else if (errorMessage.includes('403') || errorMessage.includes('Forbidden')) {
+        } else if (errorStr.includes('403') || errorStr.includes('Forbidden')) {
           userMessage = '提交任务失败: 权限不足。请检查 AccessKey 是否有相应的权限。';
-        } else if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
+        } else if (errorStr.includes('401') || errorStr.includes('Unauthorized')) {
           userMessage = '提交任务失败: 认证失败。请检查 AccessKeyId 和 SecretAccessKey 是否正确。';
-        } else if (errorMessage.includes('非JSON响应') && !errorMessage.includes('504')) {
+        } else if (errorStr.includes('非JSON响应') && !errorStr.includes('504')) {
           userMessage = '提交任务失败: API返回了意外的响应格式。请查看控制台日志获取详细信息。';
         }
         

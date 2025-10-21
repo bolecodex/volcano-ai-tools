@@ -107,22 +107,35 @@ async def create_video_task(
     
     需要在请求头中提供 Authorization: Bearer <api_key>
     """
-    if not authorization.startswith('Bearer '):
-        raise HTTPException(status_code=401, detail="Invalid authorization header")
-    
-    api_key = authorization[7:]
-    
-    request_data = {
-        'apiKey': api_key,
-        **request.dict()
-    }
-    
-    result = await api_service.create_video_task(request_data)
-    
-    if not result['success']:
-        raise HTTPException(status_code=500, detail=result['error'])
-    
-    return result['data']
+    try:
+        print(f"📥 收到视频生成请求: model={request.model}")
+        print(f"📝 请求内容: {request.dict()}")
+        
+        if not authorization.startswith('Bearer '):
+            raise HTTPException(status_code=401, detail="Invalid authorization header")
+        
+        api_key = authorization[7:]
+        
+        request_data = {
+            'apiKey': api_key,
+            **request.dict()
+        }
+        
+        print(f"🔑 API Key: {api_key[:10]}...{api_key[-4:] if len(api_key) > 14 else ''}")
+        
+        result = await api_service.create_video_task(request_data)
+        
+        if not result['success']:
+            print(f"❌ 视频任务创建失败: {result.get('error')}")
+            raise HTTPException(status_code=500, detail=result['error'])
+        
+        print(f"✅ 视频任务创建成功")
+        return result['data']
+    except Exception as e:
+        print(f"❌ 视频任务创建异常: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise
 
 
 @router.get("/api/volcano/video/tasks/{task_id}")

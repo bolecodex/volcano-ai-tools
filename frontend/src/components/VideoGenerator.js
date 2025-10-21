@@ -436,10 +436,22 @@ function VideoGenerator() {
           fetchTasks();
         }
       } else {
-        const errorMessage = result.error?.message || result.error || '未知错误';
+        // 安全地获取错误信息，确保是字符串类型
+        let errorMessage = '未知错误';
+        if (result.error) {
+          if (typeof result.error === 'string') {
+            errorMessage = result.error;
+          } else if (result.error.message && typeof result.error.message === 'string') {
+            errorMessage = result.error.message;
+          } else if (result.error.detail && typeof result.error.detail === 'string') {
+            errorMessage = result.error.detail;
+          } else {
+            errorMessage = JSON.stringify(result.error);
+          }
+        }
         
         // 特殊处理模型不存在的错误
-        if (errorMessage.includes('does not exist') || errorMessage.includes('do not have access')) {
+        if (typeof errorMessage === 'string' && (errorMessage.includes('does not exist') || errorMessage.includes('do not have access'))) {
           showAlert('danger', `模型访问失败: 所选模型 "${taskForm.model}" 不存在或您没有访问权限。请尝试选择其他模型或联系管理员开通权限。`);
         } else {
           showAlert('danger', `创建任务失败: ${errorMessage}`);
