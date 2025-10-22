@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    container_name: volcano-backend-local
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite+aiosqlite:///./data/hs_adk.db
+      - SECRET_KEY=local-development-secret-key
+      - ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=30
+      - HOST=0.0.0.0
+      - PORT=8000
+      - CORS_ORIGINS=http://localhost:3000,http://localhost:80
+    volumes:
+      - backend_data:/app/data
+      - ./backend/logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build: ./frontend
+    container_name: volcano-frontend-local
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+# nginx:
+#   image: nginx:alpine
+#   container_name: volcano-nginx-local
+#   ports:
+#     - "80:80"
+#   volumes:
+#     - ./nginx/nginx-local.conf:/etc/nginx/nginx.conf
+#   depends_on:
+#     - backend
+#     - frontend
+#   restart: unless-stopped
+
+volumes:
+  backend_data:
+    driver: local
