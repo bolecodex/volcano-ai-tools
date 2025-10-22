@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 # 用户相关的Schema
 
@@ -95,6 +95,6 @@ class SystemConfigResponse(SystemConfigBase):
 
 class SystemConfigListResponse(BaseModel):
     """系统配置列表响应"""
-    configs: list[SystemConfigResponse]
+    configs: List[SystemConfigResponse]
     total: int
 
