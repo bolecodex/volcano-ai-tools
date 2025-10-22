@@ -74,9 +74,19 @@ if lsof -i :3000 > /dev/null 2>&1; then
     sleep 2
 fi
 
+# 检查Node.js版本
+NODE_VERSION=$(node --version | cut -d'v' -f2 | cut -d'.' -f1)
+echo "📦 当前Node.js版本: v$(node --version | cut -d'v' -f2)"
+
 # 安装Node.js依赖
 echo "📦 安装Node.js依赖..."
-npm install
+if [ "$NODE_VERSION" -lt 14 ]; then
+    echo "⚠️  Node.js版本过低，使用兼容模式..."
+    npm install --legacy-peer-deps
+else
+    npm install
+fi
+
 if [ $? -ne 0 ]; then
     echo "❌ Node.js依赖安装失败"
     kill $BACKEND_PID 2>/dev/null
@@ -85,7 +95,12 @@ fi
 
 # 启动前端服务
 echo "🚀 启动前端服务..."
-npm start &
+if [ "$NODE_VERSION" -lt 14 ]; then
+    echo "⚠️  使用兼容模式启动前端..."
+    npx webpack serve --mode development --port 3000 &
+else
+    npm start &
+fi
 FRONTEND_PID=$!
 
 # 等待前端启动
