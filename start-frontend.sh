@@ -13,6 +13,6 @@ fi
 
 # 启动开发服务器
 echo "启动开发服务器..."
-echo "应用将在 http://localhost:3000 打开"
+echo "应用将在 http://0.0.0.0:3000 打开"
 npm start
 

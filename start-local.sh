@@ -33,7 +33,7 @@ echo "⏳ 等待后端启动..."
 sleep 5
 
 # 检查后端是否启动成功
-if ! curl -s http://localhost:8000/health > /dev/null; then
+if ! curl -s http://0.0.0.0:8000/health > /dev/null; then
     echo "❌ 后端启动失败"
     kill $BACKEND_PID 2>/dev/null
     exit 1
@@ -67,9 +67,9 @@ echo "⏳ 等待前端启动..."
 sleep 8
 
 echo "✅ 服务启动完成！"
-echo "🌐 前端访问地址: http://localhost:3000"
-echo "🔧 后端API地址: http://localhost:8000"
-echo "📊 健康检查: http://localhost:8000/health"
+echo "🌐 前端访问地址: http://0.0.0.0:3000"
+echo "🔧 后端API地址: http://0.0.0.0:8000"
+echo "📊 健康检查: http://0.0.0.0:8000/health"
 echo ""
 echo "按 Ctrl+C 停止服务"
 

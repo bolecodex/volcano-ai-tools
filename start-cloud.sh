@@ -57,14 +57,18 @@ fi
 
 # 创建新的虚拟环境
 echo "📦 创建Python虚拟环境..."
-python3 -m venv venv --without-pip
+python3 -m venv venv
 
-# 激活虚拟环境并安装pip
+# 激活虚拟环境
 source venv/bin/activate
-echo "📦 安装pip..."
-curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
-python get-pip.py
-rm get-pip.py
+
+# 检查pip是否可用
+if ! python -m pip --version > /dev/null 2>&1; then
+    echo "📦 安装pip..."
+    curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
+    python get-pip.py
+    rm get-pip.py
+fi
 
 # 升级pip
 echo "⬆️  升级pip..."
