@@ -1,5 +1,6 @@
 // API配置
-export const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://115.190.200.62:8000';
+// 使用相对路径，通过nginx代理访问后端API
+export const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
 
 // 认证配置
 export const TOKEN_KEY = 'token';

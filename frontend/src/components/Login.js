@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { Form, Button, Alert, Card, Spinner } from 'react-bootstrap';
 import axios from 'axios';
-
-const API_BASE_URL = 'http://115.190.200.62:8000';
+import { API_BASE_URL } from '../config';
 
 function Login({ onLoginSuccess, onSwitchToRegister }) {
   const [formData, setFormData] = useState({

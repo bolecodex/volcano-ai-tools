@@ -20,8 +20,8 @@ import DigitalHuman from './components/DigitalHuman';
 import VideoEditor from './components/VideoEditor';
 import VoiceDubbing from './components/VoiceDubbing';
 
-// 后端API地址
-const API_BASE_URL = 'http://115.190.200.62:8000';
+// 后端API地址 - 使用相对路径通过nginx代理
+import { API_BASE_URL } from './config';
 
 function App() {
   const [currentView, setCurrentView] = useState('home'); // 'home', 'login', 'register', 'config', 'volcano-ai'

@@ -1,5 +1,6 @@
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
+const webpack = require('webpack');
 
 module.exports = {
   entry: './src/index.js',
@@ -39,6 +40,9 @@ module.exports = {
       template: './public/index.html',
       filename: 'index.html',
       inject: 'body'
+    }),
+    new webpack.DefinePlugin({
+      'process.env.REACT_APP_API_URL': JSON.stringify(process.env.REACT_APP_API_URL || '/api')
     })
   ],
   devServer: {
@@ -50,7 +54,8 @@ module.exports = {
     hot: true,
     open: true,
     historyApiFallback: true,
-    compress: true
+    compress: true,
+    allowedHosts: 'all'  // 允许所有域名访问
   },
   performance: {
     hints: false,

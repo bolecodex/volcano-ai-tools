@@ -4,8 +4,7 @@ import {
   Spinner, Tabs, Tab, InputGroup, Row, Col 
 } from 'react-bootstrap';
 import axios from 'axios';
-
-const API_BASE_URL = 'http://115.190.200.62:8000';
+import { API_BASE_URL } from '../config';
 
 function SystemConfig() {
   const [configs, setConfigs] = useState([]);
