@@ -1,6 +1,6 @@
 # 火山AI创作工坊
 
-集成认证系统和火山AI创作功能的全栈 Web 应用程序
+集成认证系统和火山AI创作功能的全栈 Web 应用程序，支持本地和云端部署。
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/)
@@ -75,54 +75,69 @@
 ### 1. 克隆项目
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/bolecodex/volcano-ai-tools.git
 cd volcano-ai-tools
 ```
 
-### 2. 启动后端
+### 2. 一键启动（推荐）
 
-#### Unix/Linux/macOS
 ```bash
+# 本地启动（自动启动前后端）
+./start-local.sh
+```
+
+### 3. 分别启动
+
+#### 启动后端
+```bash
+# Unix/Linux/macOS
+./start-backend.sh
+
+# 或手动启动
 cd backend
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 python main.py
-
-# 或使用启动脚本
-./start-backend.sh
 ```
 
-#### Windows
+#### 启动前端
 ```bash
-cd backend
-python -m venv venv
-venv\Scripts\activate
-pip install -r requirements.txt
-python main.py
-
-# 或使用启动脚本
-start-backend.bat
-```
-
-后端将在 http://localhost:8000 启动
-
-### 3. 启动前端
-
-```bash
-cd frontend
-npm install
-npm start
-
-# 或使用启动脚本
 # Unix/Linux/macOS
 ./start-frontend.sh
 
-# Windows
-start-frontend.bat
+# 或手动启动
+cd frontend
+npm install
+npm start
 ```
 
-前端将在 http://localhost:3000 启动
+### 4. 访问应用
+
+- **前端界面**: http://localhost:3000
+- **后端API**: http://localhost:8000
+- **API文档**: http://localhost:8000/docs
+
+---
+
+## ☁️ 云端部署
+
+### ECS服务器部署
+
+项目已优化支持火山引擎ECS服务器部署：
+
+1. **配置安全组**: 开放端口3000和8000
+2. **启动服务**: 使用 `./start-local.sh` 一键启动
+3. **访问地址**: 
+   - 前端: `http://你的ECS公网IP:3000`
+   - 后端: `http://你的ECS公网IP:8000`
+
+### Docker部署
+
+```bash
+# 使用Docker Compose启动
+docker-compose up -d
+```
 
 ---
 
@@ -152,32 +167,28 @@ volcano-ai-tools/
 ├── frontend/                 # 前端应用
 │   ├── src/
 │   │   ├── components/       # React 组件
-│   │   ├── styles/           # 样式文件
-│   │   ├── utils/            # 工具函数
-│   │   └── App.js            # 主应用
-│   ├── public/               # 静态资源
-│   ├── docs/                 # 前端文档
-│   └── package.json          # 依赖配置
+│   │   ├── api/             # API 接口
+│   │   └── App.js           # 主应用
+│   ├── public/              # 静态资源
+│   ├── docs/                # 前端文档
+│   └── package.json         # 依赖配置
 │
 ├── backend/                  # 后端应用
-│   ├── main.py               # FastAPI 主程序
-│   ├── auth.py               # 认证模块
-│   ├── auth_routes.py        # 认证路由
-│   ├── config.py             # 配置模块
-│   ├── config_routes.py      # 配置路由
-│   ├── database.py           # 数据库
-│   ├── routers.py            # API 路由
-│   ├── schemas.py            # 数据模型
-│   ├── signature_v4.py       # 签名服务
+│   ├── main.py              # FastAPI 主程序
+│   ├── auth.py              # 认证模块
+│   ├── auth_routes.py       # 认证路由
+│   ├── config.py            # 配置模块
+│   ├── database.py          # 数据库
 │   ├── volcano_api_service.py # 火山API服务
-│   ├── volcano_routes.py     # 火山API路由
-│   ├── docs/                 # 后端文档
-│   └── requirements.txt      # Python 依赖
+│   ├── docs/                # 后端文档
+│   └── requirements.txt     # Python 依赖
 │
-├── README.md                 # 项目说明
-├── MIGRATION_SUMMARY.md      # 迁移总结
-├── start-backend.sh/bat      # 后端启动脚本
-└── start-frontend.sh/bat     # 前端启动脚本
+├── nginx/                    # Nginx配置
+├── start-local.sh           # 一键启动脚本 ⭐
+├── start-backend.sh         # 后端启动脚本
+├── start-frontend.sh        # 前端启动脚本
+├── docker-compose.yml       # Docker配置
+└── README.md                # 项目说明
 ```
 
 ---
@@ -214,12 +225,12 @@ VOLCENGINE_SECRET_ACCESS_KEY=your-secret-access-key
 
 ### 跨域配置
 
-如需修改后端地址，编辑 `backend/main.py`:
+后端已配置支持所有来源访问，如需修改请编辑 `backend/main.py`:
 
 ```python
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # 修改为你的前端地址
+    allow_origins=["*"],  # 允许所有来源
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -331,24 +342,22 @@ const response = await axios.post(
 
 ## 📖 详细文档
 
+### 项目文档
+- [API设置指南](API_SETUP_GUIDE.md)
+- [本地运行指南](LOCAL_RUN_GUIDE.md)
+- [快速部署指南](QUICK_DEPLOY.md)
+- [Docker故障排除](DOCKER_TROUBLESHOOTING.md)
+
 ### 前端文档 (frontend/docs/)
 - [前端 README](frontend/docs/README.md)
 - [认证指南](frontend/docs/AUTH_GUIDE.md)
-- [配置使用](frontend/docs/CONFIG_USAGE.md)
 - [快速开始](frontend/docs/QUICKSTART.md)
-- [火山AI README](frontend/docs/VOLCANO_AI_README.md)
 
 ### 后端文档 (backend/docs/)
 - [后端 README](backend/docs/README.md)
 - [认证指南](backend/docs/AUTH_GUIDE.md)
 - [配置指南](backend/docs/CONFIG_GUIDE.md)
 - [快速开始](backend/docs/QUICKSTART.md)
-- API 文档
-- 开发文档
-- 更新日志
-
-### 迁移文档
-- [迁移总结](MIGRATION_SUMMARY.md)
 
 ---
 
@@ -373,6 +382,11 @@ const response = await axios.post(
 ### CORS 错误
 1. 确认后端 CORS 配置包含前端地址
 2. 检查前端请求的后端地址是否正确
+
+### ECS部署问题
+1. 确认安全组已开放端口3000和8000
+2. 检查防火墙设置
+3. 使用 `curl http://你的IP:8000/health` 测试后端连接
 
 ---
 
@@ -407,8 +421,8 @@ const response = await axios.post(
 ## 📞 联系方式
 
 如有问题或建议，请通过以下方式联系：
-- **Issues**: [GitHub Issues](https://github.com/your-repo/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/your-repo/discussions)
+- **Issues**: [GitHub Issues](https://github.com/bolecodex/volcano-ai-tools/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/bolecodex/volcano-ai-tools/discussions)
 
 ---
 
