@@ -5,7 +5,7 @@ import {
 } from 'react-bootstrap';
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = 'http://115.190.200.62:8000';
 
 function SystemConfig() {
   const [configs, setConfigs] = useState([]);

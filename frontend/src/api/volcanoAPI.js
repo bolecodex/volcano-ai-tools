@@ -3,7 +3,7 @@
  * 模拟 Electron IPC API，通过 HTTP 请求与后端通信
  */
 
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = 'http://115.190.200.62:8000';
 
 class VolcanoAPIClient {
   constructor() {

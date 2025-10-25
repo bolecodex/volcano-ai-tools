@@ -21,7 +21,7 @@ import VideoEditor from './components/VideoEditor';
 import VoiceDubbing from './components/VoiceDubbing';
 
 // 后端API地址
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = 'http://115.190.200.62:8000';
 
 function App() {
   const [currentView, setCurrentView] = useState('home'); // 'home', 'login', 'register', 'config', 'volcano-ai'
